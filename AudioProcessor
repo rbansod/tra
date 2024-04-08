@@ -1,0 +1,98 @@
+import javax.sound.sampled.*;
+import java.io.File;
+import java.io.IOException;
+
+public class AudioProcessor {
+    private static final int SR = 16000;
+
+    public static float[] loadMonoAudio(String filePath) throws UnsupportedAudioFileException, IOException {
+        File audioFile = new File(filePath);
+        AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(audioFile);
+        AudioFormat format = audioInputStream.getFormat();
+
+        // Ensure audio is mono
+        if (format.getChannels() != 1) {
+            throw new IllegalArgumentException("Audio must be mono");
+        }
+
+        // Read audio data into a byte array
+        byte[] audioData = new byte[(int) (audioInputStream.getFrameLength() * format.getFrameSize())];
+        audioInputStream.read(audioData);
+
+        // Convert byte array to float array
+        float[] audioFloatArray = new float[audioData.length / 2];
+        int j = 0;
+        for (int i = 0; i < audioData.length; i += 2) {
+            // Convert bytes to short
+            short sample = (short) ((audioData[i] & 0xFF) | (audioData[i + 1] << 8));
+            // Convert short to float
+            audioFloatArray[j++] = sample / 32768.0f;
+        }
+
+        return audioFloatArray;
+    }
+
+    public static float[][] loadStereoAudio(String filePath) throws UnsupportedAudioFileException, IOException {
+        File audioFile = new File(filePath);
+        AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(audioFile);
+        AudioFormat format = audioInputStream.getFormat();
+
+        // Ensure audio is stereo
+        if (format.getChannels() != 2) {
+            throw new IllegalArgumentException("Audio must be stereo");
+        }
+
+        // Read audio data into a byte array
+        byte[] audioData = new byte[(int) (audioInputStream.getFrameLength() * format.getFrameSize())];
+        audioInputStream.read(audioData);
+
+        // Convert byte array to float array
+        float[][] audioFloatArray = new float[2][audioData.length / 4];
+        int j = 0;
+        for (int i = 0; i < audioData.length; i += 4) {
+            // Convert bytes to short for left channel
+            short sampleLeft = (short) ((audioData[i] & 0xFF) | (audioData[i + 1] << 8));
+            // Convert bytes to short for right channel
+            short sampleRight = (short) ((audioData[i + 2] & 0xFF) | (audioData[i + 3] << 8));
+            // Convert shorts to floats
+            audioFloatArray[0][j] = sampleLeft / 32768.0f;
+            audioFloatArray[1][j] = sampleRight / 32768.0f;
+            j++;
+        }
+
+        return audioFloatArray;
+    }
+
+    public static void main(String[] args) {
+        String audioExample = "path/to/audio/file.wav";
+
+        try {
+            float[] audioMono = loadMonoAudio(audioExample);
+            float[][] audioStereo = loadStereoAudio(audioExample);
+
+            // Print audio example path
+            System.out.println(audioExample);
+
+            // Print the loaded mono audio
+            System.out.println("Loaded Mono Audio:");
+            for (float sample : audioMono) {
+                System.out.print(sample + " ");
+            }
+            System.out.println();
+
+            // Print the loaded stereo audio (left and right channels)
+            System.out.println("Loaded Stereo Audio (Left Channel):");
+            for (float sample : audioStereo[0]) {
+                System.out.print(sample + " ");
+            }
+            System.out.println();
+            System.out.println("Loaded Stereo Audio (Right Channel):");
+            for (float sample : audioStereo[1]) {
+                System.out.print(sample + " ");
+            }
+            System.out.println();
+        } catch (UnsupportedAudioFileException | IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
