@@ -1,0 +1,140 @@
+int samplingRate = 16000
+int secondsToProcessAtATime = 1;
+int chunkSize = samplingRate * secondsToProcessAtATime;
+int numChunks = (int) (Math.ceil(audioStereo[0].length / (double) chunkSize));
+System.out.println("Length of Audio (Sterio): " + audio_sterio[0].length + " Number of Chunks: " + numChunks);
+
+
+SpanDetector channel0VAD = new SpanDetector(16, 0.01, 0.02, 4, 4);
+SpanDetector channel1VAD = new SpanDetector(16, 0.01, 0.02, 4, 4);
+
+int speakerTimeout = 10;
+int noTalk = 4;
+Deque<List<AudioSpan>> conversationStream = new LinkedList<>();
+
+int counter = 1;
+int totalExecutionTime = 0;
+int totalSleepTime = 0;
+
+String sid = UUID.randomUUID().toString();
+long startTime = System.currentTimeMillis();
+for (int i = 0; i < numChunks; i++) {
+	System.out.println("Iteration: " + i);
+	List<List<String>> messages = new ArrayList<>();
+	
+	long executionStartTime = System.currentTimeMillis();
+	
+	List<AudioSpan> span0 = channel0VAD.addToStream(Arrays.copyOfRange(audioStereo[0], i * chunkSize, (i + 1) * chunkSize), "user"); //Replace with Util
+    List<AudioSpan> span1 = channel1VAD.addToStream(Arrays.copyOfRange(audioStereo[1], i * chunkSize, (i + 1) * chunkSize), "ai"); //Replace with Util
+	
+	if (!span0.isEmpty() || !span1.isEmpty()) {
+        List<AudioSpan> newAudio = Stream.concat(span0.stream(), span1.stream()).sorted(Comparator.comparingInt(AudioSpan::getStartIdx)).collect(Collectors.toList());
+		
+		List<List<AudioSpan>> groupedAudio = new ArrayList<>();
+		List<AudioSpan> tempGroup = new ArrayList<>();
+		String currentSpeaker = null;
+		String currentMessage = null;
+		
+		for (AudioSpan span : newAudio) {
+			if (null == currentSpeaker || !currentSpeaker.equalsIgnoreCase(span.getSpeaker())) {
+				if (!tempGroup.isEmpty()) {
+					groupedAudio.add(new ArrayList<>(tempGroup));
+					tempGroup.clear();
+                }
+				currentSpeaker = span.getSpeaker();
+			}
+			tempGroup.add(span);
+        }
+		if (!tempGroup.isEmpty()) {
+			groupedAudio.add(tempGroup);
+		}
+		
+		if (!conversationStream.isEmpty()) {
+			List<AudioSpan> lastConversation = conversationStream.getLast();
+			if (lastConversation.get(lastConversation.size() - 1).getSpeaker().equals(groupedAudio.get(0).get(0).getSpeaker())) {
+				lastConversation.addAll(groupedAudio.remove(0));
+			} else {
+				conversationStream.add(groupedAudio.remove(0));
+			}
+            conversationStream.addAll(groupedAudio);
+        } else {
+			conversationStream.addAll(groupedAudio);
+        }
+		
+		while (!conversationStream.isEmpty() && (conversationStream.size() > 1 || i == numChunks - 1 || conversationStream.getFirst().get(0).getStartIdx() / chunkSize + speakerTimeout < i || i - conversationStream.getFirst().get(conversationStream.getFirst().size() - 1).getEndIdx() / chunkSize > noTalk)) {
+			List<AudioSpan> chunkToBeTranscribed = conversationStream.removeFirst();
+			int startIdx = chunkToBeTranscribed.get(0).getStartIdx();
+			int endIdx = chunkToBeTranscribed.get(chunkToBeTranscribed.size() - 1).getEndIdx();
+			int channel = chunkToBeTranscribed.get(0).getSpeaker().equals("user") ? 0 : 1;
+			String text = transcriber(Arrays.copyOfRange(audioStereo[channel], startIdx, endIdx)).getText(); // This is where Rest API will go
+            messages.add(Arrays.asList(String.valueOf(startIdx / chunkSize), String.valueOf(endIdx / chunkSize), text, "user".equals(chunkToBeTranscribed.get(0).getSpeaker()) ? "user" : "ai")); //Need to create Message Object here
+        }
+		
+		if (messages.size() > 0) {
+			for (List<String> message : messages) {
+				if ("you".equalsIgnoreCase(message.get(2).trim()) || message.get(2).trim().startsWith("AH") || "bye.".equalsIgnoreCase(message.get(2).trim()))  continue; // ignoring false 'you' from VAD issues OR ignoring false 'AHAHAHAH' from VAD issues OR ignoring false 'Bye.' from VAD issues
+				
+				System.out.println(message.get(2) + " - " + counter + " - " + message.get(0));
+				
+				if (!currentSpeaker.equalsIgnoreCase(message.get(4))) {
+					currentSpeaker = message.get(4);
+					currentMessage = message.get(4);
+				}
+				
+				System.out.println(message.get(2));
+				
+				Object[] summaryObjects = getSummary(sid, message.get(4).equals("user") ? "Person 2" : "Person 1", message.get(2), (int) (startTime + Integer.parseInt(message.get(0)) / samplingRate), (int) (startTime + Integer.parseInt(message.get(1)) / samplingRate)); // Call API...Discuss with Emmanuel on the Request/ Response Contract. Print request and response in the api method and return only response
+				Object request = summaryObjects[0];
+				Object summary = summaryObjects[1];
+        
+				if (null!=summary) {
+					System.out.println("Request");
+					System.out.println(request);
+					System.out.println("Response");
+					System.out.println(summary);
+				}
+        
+				boolean hasSummary = false;
+				boolean endOfRound = false;
+        
+				System.out.println("------------------------------");
+				if (summary instanceof Map && ((Map<?, ?>) summary).containsKey("callPurpose") && (StringUtils.isBlank(summaryMessage))) {
+					System.out.println("**Call Purpose:** " + ((Map<?, ?>) summary).get("callPurpose"));
+					summaryMessage = (String) ((Map<?, ?>) summary).get("callPurpose");
+					hasSummary = true;
+					endOfRound = true;
+				}
+        
+				if (summary instanceof Map && ((Map<?, ?>) summary).containsKey("purposeIntent") && ((String) ((Map<?, ?>) summary).get("purposeIntent")).length() > 5 && 	(StringUtils.isBlank(summaryIntent))) {
+					System.out.println("**Intent:** " + ((Map<?, ?>) summary).get("purposeIntent"));
+					summaryIntent = (String) ((Map<?, ?>) summary).get("purposeIntent");
+					hasSummary = true;
+					endOfRound = true;
+				}
+        
+				if (summary instanceof Map && ((Map<?, ?>) summary).containsKey("compatibleEntities") && ((List<?>) ((Map<?, ?>) summary).get("compatibleEntities")).size() > 0) {
+					System.out.println("**Entities**");
+					for (Object entity : (List<?>) ((Map<?, ?>) summary).get("compatibleEntities")) {
+						System.out.println("**" + ((Map<?, ?>) entity).get("specifiedConcept") + ":** " + ((Map<?, ?>) entity).get("rawText"));
+					}
+					entities = (List<?>) ((Map<?, ?>) summary).get("compatibleEntities");
+					endOfRound = true;
+				}
+			
+				if (endOfRound) {
+					System.out.println("------------------------------");
+				}
+			}
+		}
+		
+		long totalExecutionTime = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - executionStartTime);
+        long sleepTime = counter * secondsToProcessAtATime - totalExecutionTime;
+        try {
+			Thread.sleep(TimeUnit.SECONDS.toMillis(sleepTime));
+        } catch (InterruptedException e) {
+			e.printStackTrace();
+        }
+        System.out.println("counter: " + counter + ", totalExecutionTime: " + totalExecutionTime + ", sleepTime: " + sleepTime);
+        counter++;
+	}
+}
