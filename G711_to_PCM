@@ -1,0 +1,55 @@
+import javax.sound.sampled.*;
+import java.io.File;
+import java.io.FileInputStream;
+
+public class AudioProcessor {
+    public static void main(String[] args) {
+        try {
+            File inputFile = new File("path_to_your_g711_file");
+            File outputFile = new File("output_pcm.wav");
+
+            // Convert G.711 to PCM and save to a file
+            convertG711ToPCM(inputFile, outputFile);
+
+            // Read PCM file and convert to float array
+            float[] audioFloats = convertPCMToFloatArray(outputFile);
+
+            // Process the float array as needed
+            System.out.println("First 10 samples: ");
+            for (int i = 0; i < 10 && i < audioFloats.length; i++) {
+                System.out.println(audioFloats[i]);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void convertG711ToPCM(File inputFile, File outputFile) throws Exception {
+        AudioFormat ulawFormat = new AudioFormat(AudioFormat.Encoding.ULAW, 8000.0f, 8, 1, 1, 8000.0f, false);
+        AudioInputStream ulawStream = new AudioInputStream(new FileInputStream(inputFile), ulawFormat, inputFile.length());
+
+        AudioFormat pcmFormat = new AudioFormat(8000.0f, 16, 1, true, false);
+        AudioInputStream pcmStream = AudioSystem.getAudioInputStream(pcmFormat, ulawStream);
+
+        AudioSystem.write(pcmStream, AudioFileFormat.Type.WAVE, outputFile);
+        System.out.println("Converted PCM file written to: " + outputFile.getAbsolutePath());
+    }
+
+    private static float[] convertPCMToFloatArray(File pcmFile) throws Exception {
+        AudioInputStream pcmStream = AudioSystem.getAudioInputStream(pcmFile);
+
+        byte[] audioBytes = pcmStream.readAllBytes();
+        int frameSize = pcmStream.getFormat().getFrameSize();
+        int numSamples = audioBytes.length / frameSize;
+        float[] audioFloats = new float[numSamples];
+
+        for (int i = 0; i < numSamples; i++) {
+            int index = i * frameSize;
+            int sample = (audioBytes[index + 1] << 8) | (audioBytes[index] & 0xff);
+            audioFloats[i] = sample / 32768.0f;
+        }
+
+        return audioFloats;
+    }
+}
