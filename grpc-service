@@ -1,0 +1,27 @@
+package com.example.audio;
+
+import io.grpc.stub.StreamObserver;
+import net.devh.boot.grpc.server.service.GrpcService;
+import org.springframework.beans.factory.annotation.Autowired;
+
+@GrpcService
+public class AudioProcessorServiceImpl extends AudioProcessorGrpc.AudioProcessorImplBase {
+    private final TritonClient tritonClient;
+
+    @Autowired
+    public AudioProcessorServiceImpl(TritonClient tritonClient) {
+        this.tritonClient = tritonClient;
+    }
+
+    @Override
+    public void processAudio(AudioRequest request, StreamObserver<AudioResponse> responseObserver) {
+        byte[] audioData = request.getAudioData().toByteArray();
+        String transcription = tritonClient.processAudio(audioData);
+        AudioResponse response = AudioResponse.newBuilder()
+            .setTranscription(transcription)
+            .build();
+
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+}
