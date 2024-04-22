@@ -1,0 +1,34 @@
+<dependencies>
+    <!-- Spring Boot Starter -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+    <!-- gRPC Dependencies -->
+    <dependency>
+        <groupId>net.devh</groupId>
+        <artifactId>grpc-spring-boot-starter</artifactId>
+        <version>2.12.0.RELEASE</version>
+    </dependency>
+    <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-netty-shaded</artifactId>
+        <version>1.40.1</version>
+    </dependency>
+    <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-protobuf</artifactId>
+        <version>1.40.1</version>
+    </dependency>
+    <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-stub</artifactId>
+        <version>1.40.1</version>
+    </dependency>
+    <!-- Utilities for handling audio data -->
+    <dependency>
+        <groupId>javax.sound</groupId>
+        <artifactId>java-sound</artifactId>
+        <version>1.0</version>
+    </dependency>
+</dependencies>
