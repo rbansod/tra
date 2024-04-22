@@ -1,0 +1,12 @@
+package com.example.audio;
+
+import org.springframework.stereotype.Component;
+
+@Component
+public class TritonClient {
+
+    public String processAudio(byte[] audioData) {
+        // Logic to send audioData to Triton and receive transcription
+        return "Simulated transcription from Triton";
+    }
+}
