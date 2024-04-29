@@ -1,0 +1,19 @@
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import javax.sip.*;
+
+@Configuration
+public class SipConfiguration {
+
+    @Bean
+    public SipStack sipStack() throws Exception {
+        SipFactory sipFactory = SipFactory.getInstance();
+        return sipFactory.createSipStack(System.getProperties());
+    }
+
+    @Bean
+    public SipProvider sipProvider(SipStack sipStack) throws Exception {
+        ListeningPoint listeningPoint = sipStack.createListeningPoint("localhost", 5060, "udp");
+        return sipStack.createSipProvider(listeningPoint);
+    }
+}
