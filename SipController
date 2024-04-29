@@ -1,0 +1,23 @@
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Autowired;
+
+@RestController
+@RequestMapping("/api/sip")
+public class SipController {
+
+    private final SipService sipService;
+
+    @Autowired
+    public SipController(SipService sipService) {
+        this.sipService = sipService;
+    }
+
+    @PostMapping("/register")
+    public void register() {
+        sipService.sendRegisterRequest();
+    }
+
+    // Other SIP endpoints for call initiation, event handling, etc.
+}
