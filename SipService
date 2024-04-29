@@ -33,54 +33,69 @@ public class SipService implements SipListener {
     @Override
     public void processRequest(RequestEvent requestEvent) {
         Request request = requestEvent.getRequest();
-        logger.info("Received request: " + request.getMethod());
-        // Implement request handling
+        if (request.getMethod().equals(Request.INVITE)) {
+            // Handle incoming INVITE request
+            // Typically, you would parse SDP to extract media information and use it to set up RTP
+            rtpService.createMediaStream("localIp", localRtpPort, "remoteIp", remoteRtpPort);  // Use actual IP addresses and ports from SDP
+        } else if (request.getMethod().equals(Request.BYE)) {
+            // Handle BYE request: terminate media session
+            rtpService.stopMediaStream();
+        }
     }
 
-    @Override
-    public void processResponse(ResponseEvent responseEvent) {
-        // Implement response handling
-    }
-
-    @Override
+   @Override
     public void processTimeout(TimeoutEvent timeoutEvent) {
-        logger.warn("Transaction timed out");
+        // Log and handle the timeout of a transaction
+        logger.error("Transaction timed out: {}", timeoutEvent.isServerTransaction() ? "Server" : "Client");
+        // Possible retransmission or cleanup depending on the application logic
+        // Also consider stopping RTP if it was related to media setup
+        if (timeoutEvent.isServerTransaction()) {
+            rtpService.stopMediaStream();  // Assuming a stop is required
+        }
     }
 
     @Override
     public void processIOException(IOExceptionEvent exceptionEvent) {
-        logger.error("IO Exception in SIP Listener", exceptionEvent);
+        // Log IO Exceptions that could occur during message sending/receiving
+        logger.error("IO Exception in SIP processing: IP={}, Port={}", exceptionEvent.getHost(), exceptionEvent.getPort());
+        // Similar cleanup might be required here
+        rtpService.stopMediaStream();  // Assume RTP should be stopped on IO errors
     }
 
     @Override
     public void processTransactionTerminated(TransactionTerminatedEvent transactionTerminatedEvent) {
-        // Handle transaction termination
+        // Log transaction termination
+        logger.info("Transaction terminated: {}", transactionTerminatedEvent.isServerTransaction() ? "Server" : "Client");
+        // Depending on the scenario, cleanup resources or reset states
+        // No specific action might be required for RTP unless it directly impacts a media session
     }
 
     @Override
     public void processDialogTerminated(DialogTerminatedEvent dialogTerminatedEvent) {
-        // Handle dialog termination
+        // Log dialog termination
+        logger.info("Dialog terminated.");
+        // This usually means a session (call) has been fully terminated
+        rtpService.stopMediaStream();  // Stop RTP stream as the dialog (session) has ended
     }
 
-public void processResponse(ResponseEvent responseEvent) {
-    Response response = responseEvent.getResponse();
-    if (response.getStatusCode() == 200 && ((CSeqHeader) response.getHeader(CSeqHeader.NAME)).getMethod().equals(Request.INVITE)) {
-        // Assume SDP is part of the 200 OK response
-        SdpFactory sdpFactory = SdpFactory.getInstance();
-        SessionDescription sdp = sdpFactory.createSessionDescription(new String(response.getRawContent()));
-        // Extract media descriptions
-        Vector<MediaDescription> mediaDescriptions = sdp.getMediaDescriptions(true);
-        // Setup RTP stream for each media description
-        mediaDescriptions.forEach(md -> {
-            Media media = md.getMedia();
-            int port = media.getMediaPort();
-            String mediaType = media.getMediaType();
-            // Assuming audio for simplicity
-            if (mediaType.equals("audio")) {
-                rtpService.createMediaStream("localIp", localRtpPort, "remoteIp", port); // Replace IPs and ports accordingly
-            }
-        });
+    public void processResponse(ResponseEvent responseEvent) {
+        Response response = responseEvent.getResponse();
+        if (response.getStatusCode() == 200 && ((CSeqHeader) response.getHeader(CSeqHeader.NAME)).getMethod().equals(Request.INVITE)) {
+            // Assume SDP is part of the 200 OK response
+            SdpFactory sdpFactory = SdpFactory.getInstance();
+            SessionDescription sdp = sdpFactory.createSessionDescription(new String(response.getRawContent()));
+            // Extract media descriptions
+            Vector<MediaDescription> mediaDescriptions = sdp.getMediaDescriptions(true);
+            // Setup RTP stream for each media description
+            mediaDescriptions.forEach(md -> {
+                Media media = md.getMedia();
+                int port = media.getMediaPort();
+                String mediaType = media.getMediaType();
+                // Assuming audio for simplicity
+                if (mediaType.equals("audio")) {
+                    rtpService.createMediaStream("localIp", localRtpPort, "remoteIp", port); // Replace IPs and ports accordingly
+                }
+            });
+        }
     }
-}
-
 }
