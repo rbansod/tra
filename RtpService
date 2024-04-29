@@ -1,0 +1,51 @@
+package com.example.sipserver;
+
+import org.jitsi.service.neomedia.MediaService;
+import org.jitsi.service.neomedia.MediaStream;
+import org.jitsi.service.neomedia.format.MediaFormat;
+import org.jitsi.service.neomedia.format.MediaFormatFactory;
+import org.jitsi.service.neomedia.device.MediaDevice;
+import org.jitsi.impl.neomedia.MediaServiceImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+@Service
+public class RtpService {
+    private static final Logger logger = LoggerFactory.getLogger(RtpService.class);
+    private MediaService mediaService;
+    private MediaStream mediaStream;
+
+    public RtpService() {
+        mediaService = new MediaServiceImpl();
+    }
+
+    public void createMediaStream(String localIp, int localPort, String remoteIp, int remotePort) {
+        try {
+            MediaDevice device = mediaService.getDefaultDevice(MediaDevice.MediaType.AUDIO, MediaUseCase.CALL);
+            mediaStream = mediaService.createMediaStream(device);
+            
+            MediaFormat format = mediaService.getFormatFactory().createMediaFormat("PCMU", 8000);
+            mediaStream.setFormat(format);
+            
+            mediaStream.setDirection(MediaDirection.SENDRECV);
+            mediaStream.setTarget(new MediaStreamTarget(
+                    new InetSocketAddress(remoteIp, remotePort),
+                    new InetSocketAddress(localIp, localPort)
+            ));
+            
+            mediaStream.start();
+            logger.info("Media Stream started: Local {}:{} -> Remote {}:{}", localIp, localPort, remoteIp, remotePort);
+        } catch (Exception e) {
+            logger.error("Error setting up media stream", e);
+        }
+    }
+
+    public void stopMediaStream() {
+        if (mediaStream != null) {
+            mediaStream.stop();
+            mediaStream.close();
+            logger.info("Media Stream stopped and closed");
+        }
+    }
+}
