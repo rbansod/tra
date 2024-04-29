@@ -1,0 +1,11 @@
+@Component
+public class SipServerInitializer implements CommandLineRunner {
+
+    @Autowired
+    private SipService sipService;
+
+    @Override
+    public void run(String... args) throws Exception {
+        sipService.init();
+    }
+}
