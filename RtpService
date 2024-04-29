@@ -48,4 +48,11 @@ public class RtpService {
             logger.info("Media Stream stopped and closed");
         }
     }
+
+    public void updateMediaStream(String localIp, int localPort, String remoteIp, int remotePort) {
+        if (mediaStream != null) {
+            stopMediaStream();  // Stop the current stream
+        }
+        createMediaStream(localIp, localPort, remoteIp, remotePort);  // Start a new stream with updated parameters
+    }
 }
