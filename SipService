@@ -61,4 +61,26 @@ public class SipService implements SipListener {
     public void processDialogTerminated(DialogTerminatedEvent dialogTerminatedEvent) {
         // Handle dialog termination
     }
+
+public void processResponse(ResponseEvent responseEvent) {
+    Response response = responseEvent.getResponse();
+    if (response.getStatusCode() == 200 && ((CSeqHeader) response.getHeader(CSeqHeader.NAME)).getMethod().equals(Request.INVITE)) {
+        // Assume SDP is part of the 200 OK response
+        SdpFactory sdpFactory = SdpFactory.getInstance();
+        SessionDescription sdp = sdpFactory.createSessionDescription(new String(response.getRawContent()));
+        // Extract media descriptions
+        Vector<MediaDescription> mediaDescriptions = sdp.getMediaDescriptions(true);
+        // Setup RTP stream for each media description
+        mediaDescriptions.forEach(md -> {
+            Media media = md.getMedia();
+            int port = media.getMediaPort();
+            String mediaType = media.getMediaType();
+            // Assuming audio for simplicity
+            if (mediaType.equals("audio")) {
+                rtpService.createMediaStream("localIp", localRtpPort, "remoteIp", port); // Replace IPs and ports accordingly
+            }
+        });
+    }
+}
+
 }
