@@ -1,0 +1,64 @@
+package com.example.sipserver;
+
+import javax.sip.*;
+import javax.sip.address.AddressFactory;
+import javax.sip.header.HeaderFactory;
+import javax.sip.message.MessageFactory;
+import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Service
+public class SipService implements SipListener {
+    private static final Logger logger = LoggerFactory.getLogger(SipService.class);
+    private SipProvider sipProvider;
+    private AddressFactory addressFactory;
+    private HeaderFactory headerFactory;
+    private MessageFactory messageFactory;
+
+    public void init() throws Exception {
+        SipFactory sipFactory = SipFactory.getInstance();
+        Properties properties = new Properties();
+        properties.setProperty("javax.sip.STACK_NAME", "SipServer");
+
+        SipStack sipStack = sipFactory.createSipStack(properties);
+        ListeningPoint listeningPoint = sipStack.createListeningPoint("0.0.0.0", 5060, "udp");
+        sipProvider = sipStack.createSipProvider(listeningPoint);
+        sipProvider.addSipListener(this);
+        addressFactory = sipFactory.createAddressFactory();
+        headerFactory = sipFactory.createHeaderFactory();
+        messageFactory = sipFactory.createMessageFactory();
+    }
+
+    @Override
+    public void processRequest(RequestEvent requestEvent) {
+        Request request = requestEvent.getRequest();
+        logger.info("Received request: " + request.getMethod());
+        // Implement request handling
+    }
+
+    @Override
+    public void processResponse(ResponseEvent responseEvent) {
+        // Implement response handling
+    }
+
+    @Override
+    public void processTimeout(TimeoutEvent timeoutEvent) {
+        logger.warn("Transaction timed out");
+    }
+
+    @Override
+    public void processIOException(IOExceptionEvent exceptionEvent) {
+        logger.error("IO Exception in SIP Listener", exceptionEvent);
+    }
+
+    @Override
+    public void processTransactionTerminated(TransactionTerminatedEvent transactionTerminatedEvent) {
+        // Handle transaction termination
+    }
+
+    @Override
+    public void processDialogTerminated(DialogTerminatedEvent dialogTerminatedEvent) {
+        // Handle dialog termination
+    }
+}
