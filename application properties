@@ -1,0 +1,4 @@
+# SIP Server Configuration
+sip.server.port=5060
+sip.server.protocol=udp
+logging.level.com.example.sipserver=DEBUG
