@@ -1,0 +1,57 @@
+import java.io.*;
+import java.net.*;
+
+public class AudioClient {
+    public static void sendTCP(String host, int port, File file) throws IOException {
+        Socket socket = new Socket(host, port);
+        OutputStream output = socket.getOutputStream();
+        FileInputStream fileInput = new FileInputStream(file);
+
+        byte[] buffer = new byte[1024];
+        int read;
+        long startTime = System.currentTimeMillis();
+
+        while ((read = fileInput.read(buffer)) != -1) {
+            output.write(buffer, 0, read);
+        }
+        output.close();
+        fileInput.close();
+        socket.close();
+
+        long endTime = System.currentTimeMillis();
+        System.out.println("TCP Latency: " + (endTime - startTime) + " ms");
+    }
+
+    public static void sendUDP(String host, int port, File file) throws IOException {
+        DatagramSocket socket = new DatagramSocket();
+        InetAddress address = InetAddress.getByName(host);
+        FileInputStream fileInput = new FileInputStream(file);
+
+        byte[] buffer = new byte[1024];
+        int read;
+        long startTime = System.currentTimeMillis();
+
+        while ((read = fileInput.read(buffer)) != -1) {
+            DatagramPacket packet = new DatagramPacket(buffer, read, address, port);
+            socket.send(packet);
+        }
+        // Send a final packet to indicate the end of the file
+        DatagramPacket endPacket = new DatagramPacket("end".getBytes(), "end".getBytes().length, address, port);
+        socket.send(endPacket);
+
+        fileInput.close();
+        socket.close();
+
+        long endTime = System.currentTimeMillis();
+        System.out.println("UDP Latency: " + (endTime - startTime) + " ms");
+    }
+}
+
+public static void main(String[] args) throws IOException {
+        File file = new File("path_to_g711_file.g711");
+        String host = "localhost";
+        int port = 12345;
+
+        sendTCP(host, port, file);
+        sendUDP(host, port + 1, file);
+    }
