@@ -57,4 +57,22 @@ public class AudioServer {
 
         System.out.println("UDP Throughput: " + throughput + " Mbps");
     }
+
+    public static void main(String[] args) throws IOException {
+        int port = 12345; // Example port
+        new Thread(() -> {
+            try {
+                receiveTCP(port);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+        new Thread(() -> {
+            try {
+                receiveUDP(port + 1);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
 }
