@@ -1,0 +1,20 @@
+package com.example.udpserver;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.ip.dsl.Udp;
+
+@Configuration
+public class UdpServerConfig {
+
+    @Bean
+    public IntegrationFlow udpServerFlow() {
+        return IntegrationFlows.from(Udp.inboundAdapter(8080))
+                               .handle(message -> {
+                                   System.out.println("Received: " + new String((byte[]) message.getPayload()));
+                               })
+                               .get();
+    }
+}
