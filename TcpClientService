@@ -19,6 +19,10 @@ public class TcpClientService {
     }
 
     public void sendBinaryData(byte[] data) {
+        byte[] crlf = "\r\n".getBytes(StandardCharsets.UTF_8);
+        ByteBuffer buffer = ByteBuffer.allocate(data.length + crlf.length);
+        buffer.put(data);
+        buffer.put(crlf);
         inputChannel.send(MessageBuilder.withPayload(data).build());
         System.out.println("Binary data sent to server.");
     }
