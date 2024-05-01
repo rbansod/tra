@@ -1,0 +1,18 @@
+package com.example.udpclient;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.integration.support.MessageBuilder;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.stereotype.Service;
+
+@Service
+public class UdpClientService {
+
+    @Autowired
+    private MessageChannel inputChannel;
+
+    public void sendMessage(String message) {
+        inputChannel.send(MessageBuilder.withPayload(message.getBytes()).build());
+        System.out.println("Sent: " + message);
+    }
+}
