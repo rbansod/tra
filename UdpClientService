@@ -14,6 +14,8 @@ public class UdpClientService {
 
     public void sendMessage(String message) {
         inputChannel.send(MessageBuilder.withPayload(message.getBytes()).build());
-        System.out.println("Sent: " + message);
+        long sendTimestamp = Instant.now().toEpochMilli();
+        String timedMessage = message + "|" + sendTimestamp;
+        System.out.println("Sent: " + timedMessage);
     }
 }
