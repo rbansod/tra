@@ -13,7 +13,12 @@ public class UdpServerConfig {
     public IntegrationFlow udpServerFlow() {
         return IntegrationFlows.from(Udp.inboundAdapter(8080))
                                .handle(message -> {
-                                   System.out.println("Received: " + new String((byte[]) message.getPayload()));
+                                   long receiveTimestamp = Instant.now().toEpochMilli();
+                                   String[] parts = message.split("\\|");
+                                   long sentTimestamp = Long.parseLong(parts[1]);
+                                   long tt = receiveTimestamp - sentTimestamp;
+                                   //System.out.println("Received: " + new String((byte[]) message.getPayload()));
+                                   System.out.println("Received: " + tt/1e3);
                                })
                                .get();
     }
