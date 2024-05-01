@@ -11,8 +11,13 @@ public class UdpClientConfig {
 
     @Bean
     public IntegrationFlow udpClientFlow() {
-        return IntegrationFlows.from(MessageChannels.direct("inputChannel"))
+        return IntegrationFlows.from("inputChannel")
                                .handle(Udp.outboundAdapter("localhost", 8080))
                                .get();
+    }
+
+ @Bean(name = "inputChannel") // Naming the channel
+    public MessageChannel udpInputChannel() {
+        return new DirectChannel();
     }
 }
