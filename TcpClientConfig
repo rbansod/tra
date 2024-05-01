@@ -12,9 +12,11 @@ import org.springframework.messaging.MessageChannel;
 @Configuration
 public class TcpClientConfig {
 
-    @Bean
     public TcpNetClientConnectionFactory clientConnectionFactory() {
-        return new TcpNetClientConnectionFactory("localhost", 1234);
+        TcpNetClientConnectionFactory factory = new TcpNetClientConnectionFactory("localhost", 1234);
+        factory.setSerializer(new ByteArrayCrLfSerializer());
+        factory.setDeserializer(new ByteArrayCrLfSerializer());
+        return factory;
     }
 
     @Bean
