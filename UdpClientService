@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 public class UdpClientService {
 
     @Autowired
+    @Qualifier("inputChannel")
     private MessageChannel inputChannel;
 
     public void sendMessage(String message) {
