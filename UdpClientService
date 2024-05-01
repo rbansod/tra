@@ -18,4 +18,9 @@ public class UdpClientService {
         String timedMessage = message + "|" + sendTimestamp;
         System.out.println("Sent: " + timedMessage);
     }
+
+    public void sendBinaryData(byte[] data) {
+        inputChannel.send(MessageBuilder.withPayload(data).build());
+        System.out.println("Binary data sent to server.");
+    }
 }
