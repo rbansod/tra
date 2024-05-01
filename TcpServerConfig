@@ -12,7 +12,10 @@ public class TcpServerConfig {
 
     @Bean
     public TcpNetServerConnectionFactory serverConnectionFactory() {
-        return new TcpNetServerConnectionFactory(1234); // TCP port
+        TcpNetServerConnectionFactory factory = new TcpNetServerConnectionFactory(1234); // TCP port
+        factory.setSerializer(new ByteArrayCrLfSerializer());
+        factory.setDeserializer(new ByteArrayCrLfSerializer());
+        return factory;
     }
 
     @Bean
