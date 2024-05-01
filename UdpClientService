@@ -23,4 +23,15 @@ public class UdpClientService {
         inputChannel.send(MessageBuilder.withPayload(data).build());
         System.out.println("Binary data sent to server.");
     }
+
+public void sendBinaryDataWithTimestamp(byte[] data) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES + data.length);
+        long timestamp = Instant.now().toEpochMilli();
+        buffer.putLong(timestamp);
+        buffer.put(data);
+
+        inputChannel.send(MessageBuilder.withPayload(buffer.array()).build());
+        startTime = Instant.now().toEpochMilli();
+        totalBytesSent += buffer.array().length;
+    }
 }
