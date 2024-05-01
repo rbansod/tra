@@ -1,0 +1,27 @@
+package com.example.tcpserver;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.ip.dsl.Tcp;
+import org.springframework.integration.ip.tcp.connection.TcpNetServerConnectionFactory;
+
+@Configuration
+public class TcpServerConfig {
+
+    @Bean
+    public TcpNetServerConnectionFactory serverConnectionFactory() {
+        return new TcpNetServerConnectionFactory(1234); // TCP port
+    }
+
+    @Bean
+    public IntegrationFlow serverFlow() {
+        return IntegrationFlows.from(Tcp.inboundAdapter(serverConnectionFactory()))
+                               .handle(message -> {
+                                   System.out.println("Received: " + new String((byte[]) message.getPayload()));
+                                   return message; // Echo the message back
+                               })
+                               .get();
+    }
+}
