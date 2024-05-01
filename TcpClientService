@@ -1,0 +1,20 @@
+package com.example.tcpclient;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.integration.support.MessageBuilder;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.stereotype.Service;
+
+@Service
+public class TcpClientService {
+
+    @Autowired
+    @Qualifier("clientInputChannel") // Specify the exact channel to use
+    private MessageChannel inputChannel;
+
+    public void sendMessage(String message) {
+        inputChannel.send(MessageBuilder.withPayload(message.getBytes()).build());
+        System.out.println("Message sent to server: " + message);
+    }
+}
