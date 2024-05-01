@@ -34,4 +34,22 @@ public void sendBinaryDataWithTimestamp(byte[] data) {
         startTime = Instant.now().toEpochMilli();
         totalBytesSent += buffer.array().length;
     }
+
+ @Override
+    public void handleMessage(org.springframework.messaging.Message<?> message) {
+        byte[] payload = (byte[]) message.getPayload();
+        ByteBuffer buffer = ByteBuffer.wrap(payload);
+        long sentTimestamp = buffer.getLong();
+        long receivedTimestamp = Instant.now().toEpochMilli();
+
+        long rtt = receivedTimestamp - sentTimestamp;
+        System.out.println("Round-Trip Time (RTT): " + rtt + " ms");
+
+        long endTime = Instant.now().toEpochMilli();
+        long totalTime = endTime - startTime;
+        if (totalTime > 0) {
+            double throughput = (totalBytesSent / 1024.0 / 1024.0) / (totalTime / 1000.0);
+            System.out.println("Throughput: " + throughput + " MB/s");
+        }
+    }
 }
