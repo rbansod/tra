@@ -9,10 +9,17 @@ import org.springframework.integration.ip.dsl.Udp;
 @Configuration
 public class UdpClientConfig {
 
-    @Bean
-    public IntegrationFlow udpClientFlow() {
+     @Bean
+    public IntegrationFlow udpOutboundFlow() {
         return IntegrationFlows.from("inputChannel")
                                .handle(Udp.outboundAdapter("localhost", 8080))
+                               .get();
+    }
+
+    @Bean
+    public IntegrationFlow udpInboundFlow() {
+        return IntegrationFlows.from(Udp.inboundAdapter(12346))
+                               .channel(inboundChannel())
                                .get();
     }
 
