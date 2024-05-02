@@ -33,6 +33,14 @@ public void sendBinaryDataWithTimestamp(byte[] data) {
         inputChannel.send(MessageBuilder.withPayload(buffer.array()).build());
         startTime = Instant.now().toEpochMilli();
         totalBytesSent += buffer.array().length;
+
+         inboundChannel.subscribe(message -> {
+            ByteBuffer receivedBuffer = ByteBuffer.wrap((byte[]) message.getPayload());
+            long sentTimestamp = receivedBuffer.getLong();
+            long receivedTimestamp = Instant.now().toEpochMilli();
+            long rtt = receivedTimestamp - sentTimestamp;
+            System.out.println("Received echo. Round-Trip Time (RTT): " + rtt + " ms");
+        });
     }
 
  @Override
