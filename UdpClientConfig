@@ -32,5 +32,19 @@ public class UdpClientConfig {
                                .channel(inboundChannel())
                                .get();
     }
+
+@Bean
+    @ServiceActivator(inputChannel = "inboundChannel")
+    public MessageHandler inboundMessageHandler() {
+        return message -> {
+            byte[] data = (byte[]) message.getPayload();
+            ByteBuffer buffer = ByteBuffer.wrap(data);
+            long sentTimestamp = buffer.getLong();
+            long receivedTimestamp = System.currentTimeMillis();
+            long rtt = receivedTimestamp - sentTimestamp;
+
+            System.out.println("Received echo. Round-Trip Time (RTT): " + rtt + " ms");
+        };
+    }
 }
 }
