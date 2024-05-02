@@ -52,4 +52,14 @@ public void sendBinaryDataWithTimestamp(byte[] data) {
             System.out.println("Throughput: " + throughput + " MB/s");
         }
     }
+
+    @ServiceActivator(inputChannel = "inboundChannel")
+    public void receiveEchoedMessage(byte[] data) {
+        long receivedTimestamp = System.currentTimeMillis();
+        ByteBuffer buffer = ByteBuffer.wrap(data);
+        long sentTimestamp = buffer.getLong();
+
+        long rtt = receivedTimestamp - sentTimestamp;
+        System.out.println("Round-Trip Time (RTT): " + rtt + " ms");
+    }
 }
