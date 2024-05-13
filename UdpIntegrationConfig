@@ -1,0 +1,36 @@
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.ip.udp.UnicastReceivingChannelAdapter;
+import org.springframework.integration.channel.DirectChannel;
+import org.springframework.messaging.MessageChannel;
+
+@Configuration
+public class UdpIntegrationConfig {
+
+    private final int basePort = 5004; // Base port for RTP streams
+    private final int numberOfPorts = 10; // Number of ports to open for RTP streams
+
+    @Bean
+    public IntegrationFlow[] udpInboundFlows() {
+        IntegrationFlow[] flows = new IntegrationFlow[numberOfPorts];
+        for (int i = 0; i < numberOfPorts; i++) {
+            int port = basePort + i;
+            flows[i] = createUdpInboundFlow(port);
+        }
+        return flows;
+    }
+
+    private IntegrationFlow createUdpInboundFlow(int port) {
+        return IntegrationFlows
+            .from(() -> new UnicastReceivingChannelAdapter(port))
+            .channel(udpChannel())
+            .get();
+    }
+
+    @Bean
+    public MessageChannel udpChannel() {
+        return new DirectChannel();
+    }
+}
