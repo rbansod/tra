@@ -1,0 +1,77 @@
+import javax.media.rtp.*;
+import javax.media.rtp.event.*;
+import java.net.InetAddress;
+import java.util.concurrent.*;
+import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.stereotype.Service;
+import org.springframework.messaging.handler.annotation.Header;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import net.sf.fmj.media.rtp.RTPPacket;
+import net.sf.fmj.media.rtp.RTPPacketParser;
+
+@Service
+public class RtpProcessingService {
+
+    private final ConcurrentMap<Integer, RTPManager> rtpManagers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, ConcurrentLinkedQueue<RTPPacket>> sessionQueues = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10);
+
+    private static final int MAX_BUFFER_SIZE = 100;
+    private static final long MAX_WAIT_TIME_MS = 100;
+
+    @ServiceActivator(inputChannel = "udpChannel")
+    public void processUdpPacket(byte[] data, @Header("ip_port") int port) {
+        RTPManager rtpManager = rtpManagers.computeIfAbsent(port, this::createRtpManager);
+        ConcurrentLinkedQueue<RTPPacket> queue = sessionQueues.computeIfAbsent(port, k -> new ConcurrentLinkedQueue<>());
+
+        RTPPacket packet = parseRtpPacket(data);
+        if (packet != null) {
+            queue.offer(packet);
+            if (queue.size() >= MAX_BUFFER_SIZE) {
+                flushQueue(port);
+            }
+            restartFlushTask(port);
+        }
+    }
+
+    private RTPManager createRtpManager(int port) {
+        RTPManager manager = RTPManager.newInstance();
+        manager.addReceiveStreamListener(new CustomReceiveStreamListener());
+        return manager;
+    }
+
+    private void flushQueue(int port) {
+        ConcurrentLinkedQueue<RTPPacket> queue = sessionQueues.get(port);
+        while (!queue.isEmpty()) {
+            RTPPacket packet = queue.poll();
+            writePacketToFile(packet);
+        }
+    }
+
+    private void restartFlushTask(int port) {
+        ScheduledFuture<?> existingTask = scheduler.schedule(() -> flushQueue(port), MAX_WAIT_TIME_MS, TimeUnit.MILLISECONDS);
+        if (existingTask != null) existingTask.cancel(false);
+        scheduler.schedule(() -> flushQueue(port), MAX_WAIT_TIME_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private RTPPacket parseRtpPacket(byte[] data) {
+        RTPPacketParser parser = new RTPPacketParser();
+        return parser.parse(data);
+    }
+
+    private void writePacketToFile(RTPPacket packet) {
+        try (FileOutputStream fos = new FileOutputStream("output_rtp_data.bin", true)) {
+            fos.write(packet.payload);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private class CustomReceiveStreamListener implements ReceiveStreamListener {
+        @Override
+        public void update(ReceiveStreamEvent evt) {
+            // Handle stream events here
+        }
+    }
+}
