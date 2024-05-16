@@ -1,0 +1,64 @@
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlowContext;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.ip.dsl.Udp;
+import org.springframework.integration.ip.udp.UnicastReceivingChannelAdapter;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.integration.core.MessageHandler;
+import org.springframework.messaging.MessagingException;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.Executor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.DependsOn;
+
+@Service
+public class DynamicIntegrationFlowService {
+
+    private final IntegrationFlowContext flowContext;
+    private final AvailablePortsService availablePortsService;
+    private final Executor udpTaskExecutor;
+
+    @Autowired
+    public DynamicIntegrationFlowService(IntegrationFlowContext flowContext, AvailablePortsService availablePortsService, @Qualifier("udpTaskExecutor") Executor udpTaskExecutor) {
+        this.flowContext = flowContext;
+        this.availablePortsService = availablePortsService;
+        this.udpTaskExecutor = udpTaskExecutor;
+    }
+
+    public void registerUdpFlow() {
+        Integer port = availablePortsService.pollAvailablePort();
+        if (port != null) {
+            String flowId = "udpFlow" + port;
+
+            UnicastReceivingChannelAdapter udpInboundAdapter = new UnicastReceivingChannelAdapter(port);
+            udpInboundAdapter.setTaskExecutor(udpTaskExecutor);
+
+            IntegrationFlow flow = IntegrationFlows.from(udpInboundAdapter)
+                    .handle(udpMessageHandler())
+                    .get();
+
+            flowContext.registration(flow).id(flowId).register();
+            availablePortsService.registerPort(port);
+        } else {
+            throw new IllegalStateException("No available ports to register.");
+        }
+    }
+
+    public void unregisterUdpFlow(int port) {
+        String flowId = "udpFlow" + port;
+        flowContext.remove(flowId);
+        availablePortsService.unregisterPort(port);
+    }
+
+    public MessageHandler udpMessageHandler() {
+        return new MessageHandler() {
+            @Override
+            public void handleMessage(org.springframework.messaging.Message<?> message) throws MessagingException {
+                // Handle the UDP message here
+                System.out.println("Received message: " + message);
+            }
+        };
+    }
+}
