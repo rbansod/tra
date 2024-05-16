@@ -1,0 +1,41 @@
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Set;
+
+@RestController
+@RequestMapping("/api/udp")
+public class UdpController {
+
+    @Autowired
+    private DynamicIntegrationFlowService dynamicIntegrationFlowService;
+
+    @Autowired
+    private AvailablePortsService availablePortsService;
+
+    @PostMapping("/register")
+    public ResponseEntity<String> registerPort() {
+        try {
+            dynamicIntegrationFlowService.registerUdpFlow();
+            return ResponseEntity.ok("Port registered successfully.");
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/unregister")
+    public ResponseEntity<String> unregisterPort(@RequestParam int port) {
+        try {
+            dynamicIntegrationFlowService.unregisterUdpFlow(port);
+            return ResponseEntity.ok("Port " + port + " unregistered successfully.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/available-ports")
+    public ResponseEntity<Set<Integer>> getAvailablePorts() {
+        return ResponseEntity.ok(availablePortsService.getAvailablePorts());
+    }
+}
