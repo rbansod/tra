@@ -1,0 +1,70 @@
+import org.springframework.stereotype.Service;
+
+import javax.annotation.PostConstruct;
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+@Service
+public class AvailablePortsService {
+
+    private static final int START_PORT = 10000;
+    private static final int END_PORT = 20000;
+    private static final int NUMBER_OF_PORTS = 1000;
+
+    private Set<Integer> availablePorts;
+    private ConcurrentMap<Integer, Boolean> portsInUse;
+
+    @PostConstruct
+    public void init() {
+        availablePorts = new HashSet<>();
+        portsInUse = new ConcurrentHashMap<>();
+
+        for (int i = START_PORT; i <= END_PORT && availablePorts.size() < NUMBER_OF_PORTS; i++) {
+            if (isPortAvailable(i)) {
+                availablePorts.add(i);
+            }
+        }
+    }
+
+    private boolean isPortAvailable(int port) {
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    public synchronized Integer pollAvailablePort() {
+        if (availablePorts.isEmpty()) {
+            return null;
+        }
+        Integer port = availablePorts.iterator().next();
+        availablePorts.remove(port);
+        return port;
+    }
+
+    public synchronized void registerPort(int port) {
+        if (!portsInUse.containsKey(port)) {
+            portsInUse.put(port, true);
+        }
+    }
+
+    public synchronized void unregisterPort(int port) {
+        if (portsInUse.containsKey(port)) {
+            portsInUse.remove(port);
+            availablePorts.add(port);
+        }
+    }
+
+    public Set<Integer> getAvailablePorts() {
+        return availablePorts;
+    }
+
+    public boolean isPortInUse(int port) {
+        return portsInUse.containsKey(port);
+    }
+}
