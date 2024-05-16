@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 @Service
+@DependsOn("dataSource") //Figure out this class happens only after db is setup
 public class AvailablePortsService {
 
     private static final int START_PORT = 10000;
