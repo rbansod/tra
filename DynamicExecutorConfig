@@ -1,0 +1,34 @@
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+@Configuration
+public class DynamicExecutorConfig {
+
+    private final ConcurrentMap<Integer, ThreadPoolTaskExecutor> executors = new ConcurrentHashMap<>();
+
+    public ThreadPoolTaskExecutor createAndRegisterExecutor(int port) {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(20);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("executor-port-" + port + "-");
+        executor.initialize();
+        executors.put(port, executor);
+        return executor;
+    }
+
+    public ThreadPoolTaskExecutor getExecutor(int port) {
+        return executors.get(port);
+    }
+
+    public void removeExecutor(int port) {
+        ThreadPoolTaskExecutor executor = executors.remove(port);
+        if (executor != null) {
+            executor.shutdown();
+        }
+    }
+}
