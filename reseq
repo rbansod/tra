@@ -28,13 +28,15 @@ public class CustomMessageGroupProcessor implements MessageGroupProcessor {
 
 File directory = new File("path/to/your/folder");
 
-        if (!directory.exists()) {
-            if (directory.mkdirs()) {
-                System.out.println("Directory created successfully");
-            } else {
-                System.out.println("Failed to create directory");
+        if (directory.exists()) {
+            File[] allContents = directory.listFiles();
+        if (allContents != null) {
+            for (File file : allContents) {
+                deleteDirectory(file);
             }
-        } else {
-            System.out.println("Directory already exists");
         }
-
+        directory.delete();
+            System.out.println("Directory deleted successfully");
+        } else {
+            System.out.println("Directory does not exist");
+        }
