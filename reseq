@@ -27,16 +27,21 @@ public class CustomMessageGroupProcessor implements MessageGroupProcessor {
 
 
 File directory = new File("path/to/your/folder");
+File directory = new File("path/to/your/folder");
 
         if (directory.exists()) {
-            File[] allContents = directory.listFiles();
+            deleteDirectory(directory);
+            System.out.println("Directory deleted successfully");
+        } else {
+            System.out.println("Directory does not exist");
+        }
+
+private static void deleteDirectory(File directory) {
+        File[] allContents = directory.listFiles();
         if (allContents != null) {
             for (File file : allContents) {
                 deleteDirectory(file);
             }
         }
         directory.delete();
-            System.out.println("Directory deleted successfully");
-        } else {
-            System.out.println("Directory does not exist");
-        }
+    }
