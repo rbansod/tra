@@ -25,6 +25,16 @@ public class CustomMessageGroupProcessor implements MessageGroupProcessor {
     }
 }
 
+public class CustomReleaseStrategy implements ReleaseStrategy {
+    @Override
+    public boolean canRelease(MessageGroup group) {
+        // Custom logic to determine when the group can be released
+        // For example, release if the group size is equal to the expected sequence size
+        return group.size() >= 5;
+    }
+}
+
+
 
 File directory = new File("path/to/your/folder");
 File directory = new File("path/to/your/folder");
