@@ -1,0 +1,11 @@
+.orderComparator(new CustomSequenceNumberComparator())
+
+public class CustomSequenceNumberComparator implements Comparator<Message<?>> {
+    @Override
+    public int compare(Message<?> m1, Message<?> m2) {
+        // Assuming the target object is the payload and it has a method to get sequence number
+        TargetObject payload1 = (TargetObject) m1.getPayload();
+        TargetObject payload2 = (TargetObject) m2.getPayload();
+        return Integer.compare(payload1.getSequenceNumber(), payload2.getSequenceNumber());
+    }
+}
