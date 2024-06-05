@@ -25,3 +25,16 @@ public class CustomMessageGroupProcessor implements MessageGroupProcessor {
     }
 }
 
+
+File directory = new File("path/to/your/folder");
+
+        if (!directory.exists()) {
+            if (directory.mkdirs()) {
+                System.out.println("Directory created successfully");
+            } else {
+                System.out.println("Failed to create directory");
+            }
+        } else {
+            System.out.println("Directory already exists");
+        }
+
