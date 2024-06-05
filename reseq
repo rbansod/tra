@@ -9,3 +9,19 @@ public class CustomSequenceNumberComparator implements Comparator<Message<?>> {
         return Integer.compare(payload1.getSequenceNumber(), payload2.getSequenceNumber());
     }
 }
+
+public class CustomMessageGroupProcessor implements MessageGroupProcessor {
+    @Override
+    public Object processMessageGroup(MessageGroup group) {
+        List<Message<?>> sortedMessages = group.getMessages()
+            .stream()
+            .sorted((m1, m2) -> {
+                TargetObject payload1 = (TargetObject) m1.getPayload();
+                TargetObject payload2 = (TargetObject) m2.getPayload();
+                return Integer.compare(payload1.getSequenceNumber(), payload2.getSequenceNumber());
+            })
+            .collect(Collectors.toList());
+        return sortedMessages;
+    }
+}
+
