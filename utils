@@ -1,0 +1,6 @@
+Set<PosixFilePermission> permissions = PosixFilePermissions.fromString(perms);
+        try {
+            Files.setPosixFilePermissions(path, permissions);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
