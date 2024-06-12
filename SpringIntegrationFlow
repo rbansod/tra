@@ -8,3 +8,34 @@ Seamless Integration: Works smoothly with Spring Boot, Spring Cloud, Spring Data
 Community and Support:
 
 Spring Integration is backed by a large community and extensive documentation. Numerous resources, tutorials, and support channels are available to help developers build robust integration solutions.
+
+
+Key Patterns
+Message Channel:
+
+Description: A conduit for transmitting messages between components.
+Example: DirectChannel, QueueChannel in Spring Integration.
+Message Router:
+
+Description: Directs messages to different channels based on conditions.
+Example: Content-Based Router, Recipient List Router.
+Message Transformer:
+
+Description: Converts messages from one format to another.
+Example: XML to JSON transformation.
+Message Filter:
+
+Description: Filters out unwanted messages based on criteria.
+Example: Discarding messages that do not meet specific criteria.
+Message Endpoint:
+
+Description: Interfaces for message producers or consumers.
+Example: Inbound and outbound adapters, gateways.
+Aggregator:
+
+Description: Combines multiple messages into a single message.
+Example: Aggregating order items into a complete order.
+Splitter:
+
+Description: Splits a single message into multiple messages.
+Example: Splitting a batch order into individual orders.
