@@ -1,0 +1,8 @@
+.handle(Http.outboundGateway("http://api.example.com/post-endpoint")
+                    .httpMethod(HttpMethod.POST)
+                    .expectedResponseType(String.class)
+                    .requestPayloadType(String.class)
+                    .header("Content-Type", "application/json")  // Single value example
+                    .header("Authorization", "Bearer your_access_token_here")  // Single value example
+                    .header("Accept-Language", "en-US, en;q=0.9, fr;q=0.8")  // Multiple values example
+                    .header("X-Custom-Headers", "value1, value2, value3"))
