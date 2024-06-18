@@ -14,3 +14,8 @@
                 .fileNameGenerator(message -> "output.txt")
                 .fileExistsMode(FileExistsMode.APPEND_WITHOUT_NEW_LINE);
     }
+
+ private String generateFileName(Message<?> message) {
+        String dynamicValue = message.getHeaders().get("dynamicHeader").toString(); // Replace with actual header key
+        return "output_" + dynamicValue + ".txt"; // Example: dynamic filename generation
+    }
