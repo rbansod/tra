@@ -6,3 +6,11 @@
                     .header("Authorization", "Bearer your_access_token_here")  // Single value example
                     .header("Accept-Language", "en-US, en;q=0.9, fr;q=0.8")  // Multiple values example
                     .header("X-Custom-Headers", "value1, value2, value3"))
+
+
+ @Bean
+    public FileWritingMessageHandlerSpec fileWritingMessageHandler() {
+        return new FileWritingMessageHandlerSpec(new File("output-directory"))
+                .fileNameGenerator(message -> "output.txt")
+                .fileExistsMode(FileExistsMode.APPEND_WITHOUT_NEW_LINE);
+    }
