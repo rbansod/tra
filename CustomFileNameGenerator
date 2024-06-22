@@ -1,0 +1,18 @@
+import org.springframework.integration.file.FileNameGenerator;
+import org.springframework.messaging.Message;
+import org.springframework.stereotype.Component;
+
+@Component
+public class CustomFileNameGenerator implements FileNameGenerator {
+
+    @Override
+    public String generateFileName(Message<?> message) {
+        // Example: Extract fields from message headers or payload
+        String prefix = (String) message.getHeaders().get("filePrefix");
+        String timestamp = (String) message.getHeaders().get("timestamp");
+        String extension = (String) message.getHeaders().get("fileExtension");
+
+        // Generate filename using extracted fields
+        return prefix + "_" + timestamp + "." + extension;
+    }
+}
