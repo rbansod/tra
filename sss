@@ -34,20 +34,33 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 public class PCMToFloat {
-    public static float[] convertToFloatArray(byte[] pcmData, AudioFormat format) {
-        int numSamples = pcmData.length / (format.getSampleSizeInBits() / 8);
-        float[] floatData = new float[numSamples];
-        
+    import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import javax.sound.sampled.AudioFormat;
+
+public class PCMToFloat {
+    public static float[][] convertToFloatArray(byte[] pcmData, AudioFormat format) {
+        int sampleSizeInBytes = format.getSampleSizeInBits() / 8;
+        int numChannels = format.getChannels();
+        int numSamples = pcmData.length / (sampleSizeInBytes * numChannels);
+
+        float[][] floatData = new float[numChannels][numSamples];
+
         for (int i = 0; i < numSamples; i++) {
-            int sample = 0;
-            if (format.getSampleSizeInBits() == 16) {
-                sample = ByteBuffer.wrap(pcmData, i * 2, 2).order(ByteOrder.LITTLE_ENDIAN).getShort();
-            } else if (format.getSampleSizeInBits() == 8) {
-                sample = pcmData[i];
+            for (int ch = 0; ch < numChannels; ch++) {
+                int sampleIndex = (i * numChannels + ch) * sampleSizeInBytes;
+                int sample = 0;
+
+                if (sampleSizeInBytes == 2) {
+                    sample = ByteBuffer.wrap(pcmData, sampleIndex, sampleSizeInBytes).order(ByteOrder.LITTLE_ENDIAN).getShort();
+                } else if (sampleSizeInBytes == 1) {
+                    sample = pcmData[sampleIndex];
+                }
+
+                floatData[ch][i] = sample / (float) (1 << (format.getSampleSizeInBits() - 1));
             }
-            floatData[i] = sample / (float) (1 << (format.getSampleSizeInBits() - 1));
         }
-        
+
         return floatData;
     }
 }
