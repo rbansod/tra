@@ -68,28 +68,32 @@ public class PCMToFloat {
 
 //Resample 32-bit float array from 8kHz to 16kHz
 public class ResampleFloat {
-    public static float[] resample(float[] floatData, int originalSampleRate, int targetSampleRate) {
-        int originalNumSamples = floatData.length;
+    public static float[][] resample(float[][] floatData, int originalSampleRate, int targetSampleRate) {
+        int numChannels = floatData.length;
+        int originalNumSamples = floatData[0].length;
         int targetNumSamples = (int) (((long) originalNumSamples * targetSampleRate) / originalSampleRate);
-        float[] resampledData = new float[targetNumSamples];
+        float[][] resampledData = new float[numChannels][targetNumSamples];
 
-        for (int i = 0; i < targetNumSamples - 1; i++) {
-            float sampleIndex = (float) i * originalNumSamples / targetNumSamples;
-            int index = (int) sampleIndex;
-            float fraction = sampleIndex - index;
+        for (int ch = 0; ch < numChannels; ch++) {
+            for (int i = 0; i < targetNumSamples - 1; i++) {
+                float sampleIndex = (float) i * originalNumSamples / targetNumSamples;
+                int index = (int) sampleIndex;
+                float fraction = sampleIndex - index;
 
-            float sample1 = floatData[index];
-            float sample2 = floatData[Math.min(index + 1, originalNumSamples - 1)];
+                float sample1 = floatData[ch][index];
+                float sample2 = floatData[ch][Math.min(index + 1, originalNumSamples - 1)];
 
-            resampledData[i] = sample1 + fraction * (sample2 - sample1);
+                resampledData[ch][i] = sample1 + fraction * (sample2 - sample1);
+            }
+
+            // Handling the last sample
+            resampledData[ch][targetNumSamples - 1] = floatData[ch][originalNumSamples - 1];
         }
-
-        // Handling the last sample
-        resampledData[targetNumSamples - 1] = floatData[originalNumSamples - 1];
 
         return resampledData;
     }
 }
+
 
 
 
