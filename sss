@@ -1,0 +1,23 @@
+public static byte[] resample(byte[] pcmData, AudioFormat format) throws IOException {
+        int sampleSizeInBytes = format.getSampleSizeInBits() / 8;
+        int numSamples = pcmData.length / sampleSizeInBytes;
+        int newNumSamples = numSamples * 2;
+        byte[] resampledData = new byte[newNumSamples * sampleSizeInBytes];
+
+        for (int i = 0; i < numSamples - 1; i++) {
+            for (int j = 0; j < sampleSizeInBytes; j++) {
+                byte sample1 = pcmData[i * sampleSizeInBytes + j];
+                byte sample2 = pcmData[(i + 1) * sampleSizeInBytes + j];
+
+                resampledData[2 * i * sampleSizeInBytes + j] = sample1;
+                resampledData[(2 * i + 1) * sampleSizeInBytes + j] = (byte) ((sample1 + sample2) / 2);
+            }
+        }
+
+        // Handling the last sample
+        for (int j = 0; j < sampleSizeInBytes; j++) {
+            resampledData[(newNumSamples - 1) * sampleSizeInBytes + j] = pcmData[(numSamples - 1) * sampleSizeInBytes + j];
+        }
+
+        return resampledData;
+    }
