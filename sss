@@ -107,14 +107,15 @@ public class AudioConverter {
         byte[] pcmData = new byte[pcmStream.available()];
         pcmStream.read(pcmData);
 
-        // Step 2: Convert PCM to 32-bit float array
-        float[] floatData = PCMToFloat.convertToFloatArray(pcmData, pcmStream.getFormat());
+        // Step 2: Convert PCM to 32-bit float array with channels
+        float[][] floatData = PCMToFloat.convertToFloatArray(pcmData, pcmStream.getFormat());
 
         // Step 3: Resample the float array from 8kHz to 16kHz
-        float[] resampledData = ResampleFloat.resample(floatData, 8000, 16000);
+        float[][] resampledData = ResampleFloat.resample(floatData, 8000, 16000);
 
-        // resampledData now contains 16kHz PCM_FLOAT audio
+        // resampledData now contains 16kHz PCM_FLOAT audio for each channel
     }
 }
+
 
 
