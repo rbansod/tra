@@ -1,23 +1,107 @@
-public static byte[] resample(byte[] pcmData, AudioFormat format) throws IOException {
-        int sampleSizeInBytes = format.getSampleSizeInBits() / 8;
-        int numSamples = pcmData.length / sampleSizeInBytes;
-        int newNumSamples = numSamples * 2;
-        byte[] resampledData = new byte[newNumSamples * sampleSizeInBytes];
+import javax.sound.sampled.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 
-        for (int i = 0; i < numSamples - 1; i++) {
-            for (int j = 0; j < sampleSizeInBytes; j++) {
-                byte sample1 = pcmData[i * sampleSizeInBytes + j];
-                byte sample2 = pcmData[(i + 1) * sampleSizeInBytes + j];
+// mulaw to pcm
+public class MuLawToPCM {
+    public static AudioInputStream decodeMuLaw(byte[] muLawData) throws UnsupportedAudioFileException, IOException {
+        AudioFormat targetEncoding = AudioFormat.Encoding.PCM_SIGNED;
+        AudioInputStream inputStream = new AudioInputStream(
+            new ByteArrayInputStream(muLawData),
+            getMuLawFormat(),
+            muLawData.length
+        );
+        return AudioSystem.getAudioInputStream(targetEncoding, inputStream);
+    }
 
-                resampledData[2 * i * sampleSizeInBytes + j] = sample1;
-                resampledData[(2 * i + 1) * sampleSizeInBytes + j] = (byte) ((sample1 + sample2) / 2);
+    private static AudioFormat getMuLawFormat() {
+        return new AudioFormat(
+            AudioFormat.Encoding.ULAW,
+            8000.0f, // Sample rate
+            8,       // Bits per sample
+            1,       // Channels
+            1,       // Frame size
+            8000.0f, // Frame rate
+            false    // Big-endian
+        );
+    }
+}
+
+
+// Convert PCM byte array to 32-bit float array
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
+public class PCMToFloat {
+    public static float[] convertToFloatArray(byte[] pcmData, AudioFormat format) {
+        int numSamples = pcmData.length / (format.getSampleSizeInBits() / 8);
+        float[] floatData = new float[numSamples];
+        
+        for (int i = 0; i < numSamples; i++) {
+            int sample = 0;
+            if (format.getSampleSizeInBits() == 16) {
+                sample = ByteBuffer.wrap(pcmData, i * 2, 2).order(ByteOrder.LITTLE_ENDIAN).getShort();
+            } else if (format.getSampleSizeInBits() == 8) {
+                sample = pcmData[i];
             }
+            floatData[i] = sample / (float) (1 << (format.getSampleSizeInBits() - 1));
+        }
+        
+        return floatData;
+    }
+}
+
+
+//Resample 32-bit float array from 8kHz to 16kHz
+public class ResampleFloat {
+    public static float[] resample(float[] floatData, int originalSampleRate, int targetSampleRate) {
+        int originalNumSamples = floatData.length;
+        int targetNumSamples = (int) (((long) originalNumSamples * targetSampleRate) / originalSampleRate);
+        float[] resampledData = new float[targetNumSamples];
+
+        for (int i = 0; i < targetNumSamples - 1; i++) {
+            float sampleIndex = (float) i * originalNumSamples / targetNumSamples;
+            int index = (int) sampleIndex;
+            float fraction = sampleIndex - index;
+
+            float sample1 = floatData[index];
+            float sample2 = floatData[Math.min(index + 1, originalNumSamples - 1)];
+
+            resampledData[i] = sample1 + fraction * (sample2 - sample1);
         }
 
         // Handling the last sample
-        for (int j = 0; j < sampleSizeInBytes; j++) {
-            resampledData[(newNumSamples - 1) * sampleSizeInBytes + j] = pcmData[(numSamples - 1) * sampleSizeInBytes + j];
-        }
+        resampledData[targetNumSamples - 1] = floatData[originalNumSamples - 1];
 
         return resampledData;
     }
+}
+
+
+
+// Clubbed together
+import javax.sound.sampled.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+
+public class AudioConverter {
+    public static void main(String[] args) throws UnsupportedAudioFileException, IOException {
+        byte[] muLawData = ... // Your μ-law encoded audio data
+
+        // Step 1: Decode μ-law to PCM
+        AudioInputStream pcmStream = MuLawToPCM.decodeMuLaw(muLawData);
+        byte[] pcmData = new byte[pcmStream.available()];
+        pcmStream.read(pcmData);
+
+        // Step 2: Convert PCM to 32-bit float array
+        float[] floatData = PCMToFloat.convertToFloatArray(pcmData, pcmStream.getFormat());
+
+        // Step 3: Resample the float array from 8kHz to 16kHz
+        float[] resampledData = ResampleFloat.resample(floatData, 8000, 16000);
+
+        // resampledData now contains 16kHz PCM_FLOAT audio
+    }
+}
+
+
