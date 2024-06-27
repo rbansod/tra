@@ -1,0 +1,174 @@
+import javax.sound.sampled.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
+public class G711ToWAVConverter {
+    public static void main(String[] args) throws UnsupportedAudioFileException, IOException {
+        byte[] g711Data = ... // Your G.711 encoded audio data
+        boolean isMuLaw = true; // Set to false if using A-law
+
+        // Step 1: Convert G.711 to WAV
+        byte[] wavData = G711ToWAV.convertG711ToWAV(g711Data, isMuLaw);
+
+        // Step 2: Convert WAV to PCM byte array
+        byte[] pcmData = WAVToPCM.convertWAVToPCM(wavData);
+
+        // Step 3: Convert PCM to 32-bit float array with channels
+        AudioFormat format = new AudioFormat(8000.0f, 16, 1, true, false);
+        float[][] floatData = PCMToFloat.convertToFloatArray(pcmData, format);
+
+        // Step 4: Resample the float array from 8kHz to 16kHz
+        float[][] resampledData = ResampleFloat.resample(floatData, 8000, 16000);
+
+        // Step 5: Convert the resampled float array back to 16-bit PCM byte array
+        AudioFormat targetFormat = new AudioFormat(16000.0f, 16, 1, true, false);
+        byte[] resampledPCMData = FloatToPCM.convertToPCM(resampledData, targetFormat);
+
+        // Step 6: Convert PCM to WAV
+        byte[] finalWavData = PCMToWAV.convertToWAV(resampledPCMData, targetFormat);
+
+        // finalWavData now contains the WAV formatted audio data
+    }
+
+    // Utility method to read all bytes from an AudioInputStream
+    private static byte[] readAllBytes(AudioInputStream audioInputStream) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] temp = new byte[1024];
+        int bytesRead;
+        while ((bytesRead = audioInputStream.read(temp)) != -1) {
+            buffer.write(temp, 0, bytesRead);
+        }
+        return buffer.toByteArray();
+    }
+}
+
+class G711ToWAV {
+    public static byte[] convertG711ToWAV(byte[] g711Data, boolean isMuLaw) throws IOException, UnsupportedAudioFileException {
+        AudioInputStream pcmStream = decodeG711(g711Data, isMuLaw);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        AudioSystem.write(pcmStream, AudioFileFormat.Type.WAVE, outputStream);
+        return outputStream.toByteArray();
+    }
+
+    private static AudioInputStream decodeG711(byte[] g711Data, boolean isMuLaw) throws UnsupportedAudioFileException, IOException {
+        AudioFormat.Encoding targetEncoding = AudioFormat.Encoding.PCM_SIGNED;
+        AudioFormat g711Format = getG711Format(isMuLaw);
+        AudioInputStream inputStream = new AudioInputStream(
+            new ByteArrayInputStream(g711Data),
+            g711Format,
+            g711Data.length
+        );
+        return AudioSystem.getAudioInputStream(targetEncoding, inputStream);
+    }
+
+    private static AudioFormat getG711Format(boolean isMuLaw) {
+        return new AudioFormat(
+            isMuLaw ? AudioFormat.Encoding.ULAW : AudioFormat.Encoding.ALAW,
+            8000.0f, // Sample rate
+            8,       // Bits per sample
+            1,       // Channels
+            1,       // Frame size
+            8000.0f, // Frame rate
+            false    // Big-endian
+        );
+    }
+}
+
+class WAVToPCM {
+    public static byte[] convertWAVToPCM(byte[] wavData) throws IOException, UnsupportedAudioFileException {
+        AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new ByteArrayInputStream(wavData));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int bytesRead;
+        while ((bytesRead = audioInputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, bytesRead);
+        }
+        return outputStream.toByteArray();
+    }
+}
+
+class PCMToFloat {
+    public static float[][] convertToFloatArray(byte[] pcmData, AudioFormat format) {
+        int sampleSizeInBytes = format.getSampleSizeInBits() / 8;
+        int numChannels = format.getChannels();
+        int numSamples = pcmData.length / (sampleSizeInBytes * numChannels);
+
+        float[][] floatData = new float[numChannels][numSamples];
+
+        for (int i = 0; i < numSamples; i++) {
+            for (int ch = 0; ch < numChannels; ch++) {
+                int sampleIndex = (i * numChannels + ch) * sampleSizeInBytes;
+                int sample = 0;
+
+                if (sampleSizeInBytes == 2) {
+                    sample = ByteBuffer.wrap(pcmData, sampleIndex, sampleSizeInBytes).order(ByteOrder.LITTLE_ENDIAN).getShort();
+                } else if (sampleSizeInBytes == 1) {
+                    sample = pcmData[sampleIndex];
+                }
+
+                floatData[ch][i] = sample / (float) (1 << (format.getSampleSizeInBits() - 1));
+            }
+        }
+
+        return floatData;
+    }
+}
+
+class ResampleFloat {
+    public static float[][] resample(float[][] floatData, int originalSampleRate, int targetSampleRate) {
+        int numChannels = floatData.length;
+        int originalNumSamples = floatData[0].length;
+        int targetNumSamples = (int) (((long) originalNumSamples * targetSampleRate) / originalSampleRate);
+        float[][] resampledData = new float[numChannels][targetNumSamples];
+
+        for (int ch = 0; ch < numChannels; ch++) {
+            for (int i = 0; i < targetNumSamples - 1; i++) {
+                float sampleIndex = (float) i * originalNumSamples / targetNumSamples;
+                int index = (int) sampleIndex;
+                float fraction = sampleIndex - index;
+
+                float sample1 = floatData[ch][index];
+                float sample2 = floatData[ch][Math.min(index + 1, originalNumSamples - 1)];
+
+                resampledData[ch][i] = sample1 + fraction * (sample2 - sample1);
+            }
+
+            // Handling the last sample
+            resampledData[ch][targetNumSamples - 1] = floatData[ch][originalNumSamples - 1];
+        }
+
+        return resampledData;
+    }
+}
+
+class FloatToPCM {
+    public static byte[] convertToPCM(float[][] floatData, AudioFormat format) {
+        int numChannels = floatData.length;
+        int numSamples = floatData[0].length;
+        int sampleSizeInBytes = 2; // 16 bits = 2 bytes
+        byte[] pcmData = new byte[numSamples * numChannels * sampleSizeInBytes];
+
+        for (int i = 0; i < numSamples; i++) {
+            for (int ch = 0; ch < numChannels; ch++) {
+                int sampleIndex = (i * numChannels + ch) * sampleSizeInBytes;
+                short sample = (short) (floatData[ch][i] * (1 << 15)); // Convert float to 16-bit PCM
+                ByteBuffer.wrap(pcmData, sampleIndex, sampleSizeInBytes).order(ByteOrder.LITTLE_ENDIAN).putShort(sample);
+            }
+        }
+
+        return pcmData;
+    }
+}
+
+class PCMToWAV {
+    public static byte[] convertToWAV(byte[] pcmData, AudioFormat pcmFormat) throws IOException, UnsupportedAudioFileException {
+        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(pcmData);
+        AudioInputStream pcmStream = new AudioInputStream(byteArrayInputStream, pcmFormat, pcmData.length / pcmFormat.getFrameSize());
+
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        AudioSystem.write(pcmStream, AudioFileFormat.Type.WAVE, byteArrayOutputStream);
+
+        return byteArrayOutputStream.toByteArray();
+    }
+}
