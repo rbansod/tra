@@ -1,0 +1,102 @@
+import be.tarsos.dsp.AudioEvent;
+import be.tarsos.dsp.AudioProcessor;
+import be.tarsos.dsp.AudioDispatcher;
+import be.tarsos.dsp.AudioDispatcherFactory;
+import be.tarsos.dsp.io.jvm.WaveformSimilarityBasedOverlapAdd;
+import be.tarsos.dsp.resample.RateTransposer;
+
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.io.IOException;
+
+public class Resampler {
+
+    public static float[][] resample(float[][] y, double origSr, double targetSr) throws IOException {
+        int channels = y.length;
+        int inLength = y[0].length;
+        int outLength = (int) Math.ceil(inLength * (targetSr / origSr));
+        float[][] yHat = new float[channels][outLength];
+
+        for (int i = 0; i < channels; i++) {
+            yHat[i] = tarsosDSPResample(y[i], origSr, targetSr);
+        }
+
+        return yHat;
+    }
+
+    private static float[] tarsosDSPResample(float[] y, double origSr, double targetSr) throws IOException {
+        // Convert float array to byte array
+        byte[] byteArray = floatArrayToByteArray(y);
+
+        // Set up the audio format
+        AudioFormat format = new AudioFormat((float) origSr, 32, 1, true, false);
+        AudioInputStream inputStream = new AudioInputStream(new ByteArrayInputStream(byteArray), format, y.length);
+
+        // Set up the dispatcher
+        int bufferSize = 4096;
+        int overlap = 0;
+        AudioDispatcher dispatcher = new AudioDispatcher(inputStream, bufferSize, overlap);
+        RateTransposer rateTransposer = new RateTransposer(targetSr / origSr);
+
+        // Set up the output stream
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        dispatcher.addAudioProcessor(rateTransposer);
+        dispatcher.addAudioProcessor(new AudioProcessor() {
+            @Override
+            public boolean process(AudioEvent audioEvent) {
+                try {
+                    outputStream.write(floatArrayToByteArray(audioEvent.getFloatBuffer()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return true;
+            }
+
+            @Override
+            public void processingFinished() {
+            }
+        });
+
+        // Run the dispatcher
+        dispatcher.run();
+
+        // Convert byte array back to float array
+        byte[] outputByteArray = outputStream.toByteArray();
+        return byteArrayToFloatArray(outputByteArray);
+    }
+
+    private static byte[] floatArrayToByteArray(float[] input) {
+        ByteBuffer buffer = ByteBuffer.allocate(input.length * 4);
+        for (float f : input) {
+            buffer.putFloat(f);
+        }
+        return buffer.array();
+    }
+
+    private static float[] byteArrayToFloatArray(byte[] input) {
+        FloatBuffer floatBuffer = ByteBuffer.wrap(input).asFloatBuffer();
+        float[] output = new float[floatBuffer.remaining()];
+        floatBuffer.get(output);
+        return output;
+    }
+
+    public static void main(String[] args) throws IOException {
+        float[][] audioData = {
+                {1.0f, 2.0f, 3.0f, 4.0f, 5.0f},
+                {5.0f, 4.0f, 3.0f, 2.0f, 1.0f}
+        }; // Example audio data
+        double origSr = 22050.0;
+        double targetSr = 8000.0;
+
+        float[][] resampledData = resample(audioData, origSr, targetSr);
+
+        for (float[] channel : resampledData) {
+            System.out.println(Arrays.toString(channel));
+        }
+    }
+}
