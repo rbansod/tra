@@ -100,3 +100,56 @@ public class Resampler {
         }
     }
 }
+
+
+
+
+import be.tarsos.dsp.io.jvm.AudioDispatcherFactory;
+import be.tarsos.dsp.resample.ResampleProcessor;
+import be.tarsos.dsp.AudioDispatcher;
+import be.tarsos.dsp.AudioEvent;
+import be.tarsos.dsp.AudioProcessor;
+
+import javax.sound.sampled.*;
+import java.util.Arrays;
+
+public class ResampleProcessorExample {
+
+    public static float[] resample(float[] audioData, float originalSampleRate, float targetSampleRate) throws Exception {
+        AudioDispatcher dispatcher = AudioDispatcherFactory.fromFloatArray(audioData, (int) originalSampleRate, 1024, 0);
+        ResampleProcessor resampleProcessor = new ResampleProcessor(originalSampleRate, targetSampleRate);
+        dispatcher.addAudioProcessor(resampleProcessor);
+
+        int newSize = (int) (audioData.length * (targetSampleRate / originalSampleRate));
+        float[] output = new float[newSize];
+        dispatcher.addAudioProcessor(new AudioProcessor() {
+            int offset = 0;
+
+            @Override
+            public boolean process(AudioEvent audioEvent) {
+                System.arraycopy(audioEvent.getFloatBuffer(), 0, output, offset, audioEvent.getBufferSize());
+                offset += audioEvent.getBufferSize();
+                return true;
+            }
+
+            @Override
+            public void processingFinished() {
+            }
+        });
+
+        dispatcher.run();
+        return output;
+    }
+
+    public static void main(String[] args) throws Exception {
+        float originalSampleRate = 44100;
+        float targetSampleRate = 22050;
+        float[] audioData = new float[(int) (originalSampleRate * 10)];  // 10 seconds of audio
+        Arrays.fill(audioData, 1.0f);  // Example data
+
+        float[] resampledData = resample(audioData, originalSampleRate, targetSampleRate);
+
+        System.out.println("Original size: " + audioData.length + ", Resampled size: " + resampledData.length);
+    }
+}
+
