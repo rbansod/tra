@@ -1,0 +1,126 @@
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.handler.advice.RequestHandlerRetryAdvice;
+import org.springframework.retry.backoff.ExponentialBackOffPolicy;
+import org.springframework.retry.policy.SimpleRetryPolicy;
+import org.springframework.retry.support.RetryTemplate;
+
+@Configuration
+public class ServiceRetryConfig {
+
+    @Bean
+    public RetryTemplate retryTemplate() {
+        RetryTemplate retryTemplate = new RetryTemplate();
+        
+        SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy();
+        retryPolicy.setMaxAttempts(3);  // Number of retry attempts
+        
+        ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
+        backOffPolicy.setInitialInterval(500);  // Initial wait time
+        backOffPolicy.setMultiplier(2.0);       // Multiplier for wait time
+        backOffPolicy.setMaxInterval(2000);     // Maximum wait time
+
+        retryTemplate.setRetryPolicy(retryPolicy);
+        retryTemplate.setBackOffPolicy(backOffPolicy);
+        
+        return retryTemplate;
+    }
+
+    @Bean
+    public RequestHandlerRetryAdvice retryAdvice() {
+        RequestHandlerRetryAdvice retryAdvice = new RequestHandlerRetryAdvice();
+        retryAdvice.setRetryTemplate(retryTemplate());
+        return retryAdvice;
+    }
+}
+
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.config.EnableIntegration;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.handler.advice.RequestHandlerRetryAdvice;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.support.GenericMessage;
+
+@Configuration
+@EnableIntegration
+public class IntegrationConfig {
+
+    private final RequestHandlerRetryAdvice retryAdvice;
+
+    public IntegrationConfig(RequestHandlerRetryAdvice retryAdvice) {
+        this.retryAdvice = retryAdvice;
+    }
+
+    @Bean
+    public IntegrationFlow serviceIntegrationFlow(MessageChannel serviceInputChannel) {
+        return IntegrationFlows.from(serviceInputChannel)
+                               .handle((payload, headers) -> {
+                                   serviceMethod();
+                                   return null;
+                               }, e -> e.advice(retryAdvice))
+                               .get();
+    }
+
+    // Example service method
+    public void serviceMethod() {
+        System.out.println("Service: Attempting to process message...");
+        throw new RuntimeException("Service failure");
+    }
+}
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.channel.DirectChannel;
+import org.springframework.messaging.MessageChannel;
+
+@Configuration
+public class ChannelConfig {
+
+    @Bean
+    public MessageChannel serviceInputChannel() {
+        return new DirectChannel();
+    }
+}
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
+
+@Configuration
+@EnableAspectJAutoProxy
+public class AopConfig {
+    // This configuration enables AOP proxy support
+}
+
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.annotation.EnableRetry;
+
+@Configuration
+@EnableRetry
+public class GlobalRetryConfiguration {
+    // This enables retry annotations globally if you use @Retryable elsewhere
+}
+
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.support.GenericMessage;
+import org.springframework.stereotype.Component;
+
+import javax.annotation.PostConstruct;
+
+@Component
+public class TestService {
+
+    @Autowired
+    private MessageChannel serviceInputChannel;
+
+    @PostConstruct
+    public void testIntegrationFlow() {
+        serviceInputChannel.send(new GenericMessage<>("Test message"));
+    }
+}
+
