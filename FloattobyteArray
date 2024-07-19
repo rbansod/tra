@@ -1,0 +1,12 @@
+public static byte[] convertFloatArrayToByteArray(float[] floatArray) {
+        // Allocate a ByteBuffer with capacity equal to float array length times 4 (size of float in bytes)
+        ByteBuffer byteBuffer = ByteBuffer.allocate(floatArray.length * Float.BYTES);
+        
+        // Put each float into the ByteBuffer
+        for (float f : floatArray) {
+            byteBuffer.putFloat(f);
+        }
+        
+        // Return the underlying byte array
+        return byteBuffer.array();
+    }
