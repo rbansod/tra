@@ -1,0 +1,39 @@
+import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.integration.core.MessageHandler;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+@Component
+public class SequenceNumberMessageProcessor implements MessageHandler {
+
+    private final ConcurrentHashMap<String, AtomicLong> sequenceNumbers = new ConcurrentHashMap<>();
+
+    @Override
+    @ServiceActivator(inputChannel = "inputChannel", outputChannel = "outputChannel")
+    public void handleMessage(Message<?> message) {
+        String correlationId = (String) message.getHeaders().get("correlationId");
+        if (correlationId == null) {
+            throw new IllegalArgumentException("Message must contain a correlationId header");
+        }
+
+        AtomicLong sequenceNumber = sequenceNumbers.computeIfAbsent(correlationId, k -> new AtomicLong());
+
+        long seqNum = sequenceNumber.incrementAndGet();
+        Message<?> newMessage = MessageBuilder
+                .fromMessage(message)
+                .setHeader("sequenceNumber", seqNum)
+                .build();
+
+        getOutputChannel().send(newMessage);
+    }
+
+    private MessageChannel getOutputChannel() {
+        // Get the output channel from the application context or define it as a bean
+        return // Your output channel bean or instance;
+    }
+}
