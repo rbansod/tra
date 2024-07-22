@@ -1,0 +1,40 @@
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public ConcurrentHashMap<String, AtomicLong> sequenceNumberMap() {
+        return new ConcurrentHashMap<>();
+    }
+}
+
+
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+@Component
+public class SequenceNumberProcessor {
+
+    public Message<?> addSequenceNumber(Message<?> message, ConcurrentHashMap<String, AtomicLong> sequenceNumbers) {
+        String correlationId = (String) message.getHeaders().get("correlationId");
+        if (correlationId == null) {
+            throw new IllegalArgumentException("Message must contain a correlationId header");
+        }
+
+        AtomicLong sequenceNumber = sequenceNumbers.computeIfAbsent(correlationId, k -> new AtomicLong());
+
+        long seqNum = sequenceNumber.incrementAndGet();
+        return MessageBuilder.fromMessage(message)
+                .setHeader("sequenceNumber", seqNum)
+                .build();
+    }
+}
