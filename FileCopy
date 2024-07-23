@@ -1,0 +1,40 @@
+import java.io.IOException;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.stream.Stream;
+
+public class FileCopy {
+
+    public static void main(String[] args) {
+        Path sourcePath = Paths.get("path/to/source");
+        Path targetPath = Paths.get("path/to/target");
+
+        try {
+            copyRecursively(sourcePath, targetPath);
+            System.out.println("Files copied successfully.");
+        } catch (IOException e) {
+            System.err.println("Error copying files: " + e.getMessage());
+        }
+    }
+
+    public static void copyRecursively(Path source, Path target) throws IOException {
+        if (Files.isDirectory(source)) {
+            if (!Files.exists(target)) {
+                Files.createDirectories(target);
+            }
+
+            try (Stream<Path> paths = Files.list(source)) {
+                paths.forEach(src -> {
+                    Path dest = target.resolve(src.getFileName());
+                    try {
+                        copyRecursively(src, dest);
+                    } catch (IOException e) {
+                        System.err.printf("Unable to copy file: %s: %s%n", src, e);
+                    }
+                });
+            }
+        } else {
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+}
