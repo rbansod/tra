@@ -1,0 +1,12 @@
+@Component
+public class GlobalErrorHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalErrorHandler.class);
+
+    public void handleError(Message<?> message) {
+        Throwable throwable = (Throwable) message.getPayload();
+        logger.error("Global Error occurred: ", throwable);
+        // Additional error handling logic
+    }
+
+}
