@@ -9,4 +9,11 @@ public class GlobalErrorHandler {
         // Additional error handling logic
     }
 
+
+@Bean
+    public IntegrationFlow globalErrorFlow() {
+        return IntegrationFlows.from("globalErrorChannel")
+            .handle("globalErrorHandler", "handleError")
+            .get();
+    }
 }
