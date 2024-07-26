@@ -1,0 +1,16 @@
+public static void main(String[] args) {
+        String[] dnsSuffixes = {"bankofamerica.com", "bofa.com"};
+
+        for (String dnsSuffix : dnsSuffixes) {
+            try {
+                InetAddress[] inetAddresses = InetAddress.getAllByName(dnsSuffix);
+
+                System.out.println("IP addresses for " + dnsSuffix + ":");
+                for (InetAddress inetAddress : inetAddresses) {
+                    System.out.println(inetAddress.getHostAddress());
+                }
+            } catch (UnknownHostException e) {
+                System.err.println("Unable to resolve IP address for: " + dnsSuffix);
+                e.printStackTrace();
+            }
+        }
