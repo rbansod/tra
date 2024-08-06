@@ -1,0 +1,13 @@
+@BeforeEach
+    public void setUp() {
+        // Configure the mock to handle computeIfAbsent
+        when(mockMap.computeIfAbsent(anyString(), any()))
+            .thenAnswer(invocation -> {
+                // Extract arguments
+                String key = invocation.getArgument(0);
+                Function<String, CallMetadata> mappingFunction = invocation.getArgument(1);
+
+                // Compute the value using the provided function
+                return mappingFunction.apply(key);
+            });
+    }
