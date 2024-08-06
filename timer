@@ -1,0 +1,13 @@
+Timer timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    // Task logic here
+                    task.run();
+                    System.out.println("Task executed after delay");
+                } finally {
+                    timer.cancel();  // Cancel the timer after task execution
+                }
+            }
+        }, delay);
