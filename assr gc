@@ -1,0 +1,31 @@
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.ConcurrentMap;
+
+@Component
+public class ScheduledTask {
+
+    @Autowired
+    private ConcurrentMap<String, Long> timeMap;
+
+    private static final long ELAPSED_TIME_THRESHOLD = 10; // 10 seconds
+
+    @Scheduled(fixedRate = 5000) // Runs every 5 seconds
+    public void checkAndRemoveEntries() {
+        long currentTime = System.currentTimeMillis() / 1000; // Convert to seconds
+        
+        timeMap.forEach((key, value) -> {
+            if (currentTime - value > ELAPSED_TIME_THRESHOLD) {
+                handleElapsedEntry(key);
+                timeMap.remove(key);
+            }
+        });
+    }
+
+    public void handleElapsedEntry(String key) {
+        // Implement your logic here
+        System.out.println("Handling elapsed entry for key: " + key);
+    }
+}
