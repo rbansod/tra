@@ -1,0 +1,30 @@
+import java.util.concurrent.TimeUnit;
+
+public class NanoTimeToSeconds {
+    public static void main(String[] args) {
+        // Get the current time in nanoseconds
+        long startTimeNano = System.nanoTime();
+        
+        // Simulate some processing
+        try {
+            Thread.sleep(1000); // Sleep for 1 second
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        
+        long endTimeNano = System.nanoTime();
+        
+        // Calculate elapsed time in nanoseconds
+        long elapsedTimeNano = endTimeNano - startTimeNano;
+        
+        // Convert elapsed time to seconds using TimeUnit
+        long elapsedTimeSeconds = TimeUnit.NANOSECONDS.toSeconds(elapsedTimeNano);
+        
+        // Alternatively, if you want to keep the fractional seconds
+        double elapsedTimeSecondsFractional = elapsedTimeNano / 1_000_000_000.0;
+        
+        System.out.println("Elapsed time in nanoseconds: " + elapsedTimeNano + "ns");
+        System.out.println("Elapsed time in seconds (integer): " + elapsedTimeSeconds + "s");
+        System.out.println("Elapsed time in seconds (fractional): " + elapsedTimeSecondsFractional + "s");
+    }
+}
