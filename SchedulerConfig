@@ -1,0 +1,33 @@
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+@Configuration
+public class SchedulerConfig {
+
+    @Bean(name="transcribeAsyncTaskScheduler")
+    public ThreadPoolTaskScheduler transcribeAsyncTaskScheduler() {
+        // Create a ScheduledThreadPoolExecutor with an initial core size
+        ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(100);
+
+        // Set the maximum pool size to allow the pool to grow dynamically
+        scheduledThreadPoolExecutor.setMaximumPoolSize(100);
+
+        // Allow threads to time out and be removed from the pool when idle
+        scheduledThreadPoolExecutor.setKeepAliveTime(60, TimeUnit.SECONDS);
+
+        // Use the configured ScheduledThreadPoolExecutor in a ThreadPoolTaskScheduler
+        ThreadPoolTaskScheduler taskScheduler = new ThreadPoolTaskScheduler();
+        taskScheduler.setPoolSize(100); // The initial core pool size
+        taskScheduler.setScheduledExecutor(scheduledThreadPoolExecutor);
+        taskScheduler.setThreadNamePrefix("DynamicTaskScheduler-");
+        taskScheduler.setRemoveOnCancelPolicy(true);
+        taskScheduler.setAwaitTerminationSeconds(60);
+
+        return taskScheduler;
+    }
+}
