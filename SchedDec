@@ -1,0 +1,69 @@
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.Trigger;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+
+import java.util.Date;
+import java.util.concurrent.ScheduledFuture;
+
+public class MdcTaskSchedulerDecorator implements TaskScheduler {
+
+    private final ThreadPoolTaskScheduler taskScheduler;
+    private final TaskDecorator taskDecorator;
+
+    public MdcTaskSchedulerDecorator(ThreadPoolTaskScheduler taskScheduler, TaskDecorator taskDecorator) {
+        this.taskScheduler = taskScheduler;
+        this.taskDecorator = taskDecorator;
+    }
+
+    @Override
+    public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) {
+        return taskScheduler.schedule(taskDecorator.decorate(task), trigger);
+    }
+
+    @Override
+    public ScheduledFuture<?> schedule(Runnable task, Date startTime) {
+        return taskScheduler.schedule(taskDecorator.decorate(task), startTime);
+    }
+
+    @Override
+    public ScheduledFuture<?> scheduleAtFixedRate(Runnable task, Date startTime, long period) {
+        return taskScheduler.scheduleAtFixedRate(taskDecorator.decorate(task), startTime, period);
+    }
+
+    @Override
+    public ScheduledFuture<?> scheduleAtFixedRate(Runnable task, long period) {
+        return taskScheduler.scheduleAtFixedRate(taskDecorator.decorate(task), period);
+    }
+
+    @Override
+    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, Date startTime, long delay) {
+        return taskScheduler.scheduleWithFixedDelay(taskDecorator.decorate(task), startTime, delay);
+    }
+
+    @Override
+    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, long delay) {
+        return taskScheduler.scheduleWithFixedDelay(taskDecorator.decorate(task), delay);
+    }
+}
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+
+@Configuration
+public class SchedulerConfig {
+
+    @Bean
+    public ThreadPoolTaskScheduler threadPoolTaskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(1000);
+        scheduler.setThreadNamePrefix("MdcScheduler-");
+        scheduler.initialize();
+        return scheduler;
+    }
+
+    @Bean
+    public TaskScheduler mdcTaskSchedulerDecorator() {
+        return new MdcTaskSchedulerDecorator(threadPoolTaskScheduler(), new MdcTaskDecorator());
+    }
+}
