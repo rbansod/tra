@@ -1,0 +1,83 @@
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class VadAnalysisService {
+
+    @Autowired
+    private NoiseReductionService noiseReductionService;
+
+    @Autowired
+    private FeatureExtractionService featureExtractionService;
+
+    private static final int FRAME_SIZE = 160; // 20ms at 8kHz sample rate
+    private static final int YAKKING_THRESHOLD_MS = 5000;
+    private static final int MICRO_PAUSE_THRESHOLD_MS = 200;
+
+    public VadResult analyzeSpeech(double[] audioSamples, int sampleRate) {
+        double[] denoisedSamples = noiseReductionService.reduceNoise(audioSamples, FRAME_SIZE);
+        int numFrames = audioSamples.length / FRAME_SIZE;
+
+        boolean[] vadResults = new boolean[numFrames];
+        int continuousSpeechFrames = 0;
+        int silenceFrames = 0;
+
+        for (int i = 0; i < numFrames; i++) {
+            double[] frame = extractFrame(denoisedSamples, i * FRAME_SIZE, FRAME_SIZE);
+            double energy = featureExtractionService.calculateFrameEnergy(frame);
+            double pitch = featureExtractionService.calculatePitch(frame);
+            double spectralCentroid = featureExtractionService.calculateSpectralCentroid(frame, sampleRate);
+
+            boolean isVoice = energy > 0.05 && pitch >= 80 && pitch <= 300 && spectralCentroid > 500;
+            vadResults[i] = isVoice;
+
+            if (isVoice) {
+                continuousSpeechFrames++;
+                silenceFrames = 0;
+            } else {
+                silenceFrames++;
+                continuousSpeechFrames = 0;
+            }
+
+            if (continuousSpeechFrames * FRAME_SIZE / (sampleRate / 1000) > YAKKING_THRESHOLD_MS) {
+                System.out.println("Yakking detected.");
+            }
+
+            if (silenceFrames * FRAME_SIZE / (sampleRate / 1000) <= MICRO_PAUSE_THRESHOLD_MS) {
+                System.out.println("Micro pause detected.");
+            }
+        }
+
+        return new VadResult(vadResults, continuousSpeechFrames, silenceFrames);
+    }
+
+    private double[] extractFrame(double[] samples, int start, int frameSize) {
+        double[] frame = new double[frameSize];
+        System.arraycopy(samples, start, frame, 0, frameSize);
+        return frame;
+    }
+
+    public static class VadResult {
+        private final boolean[] vadResults;
+        private final int continuousSpeechFrames;
+        private final int silenceFrames;
+
+        public VadResult(boolean[] vadResults, int continuousSpeechFrames, int silenceFrames) {
+            this.vadResults = vadResults;
+            this.continuousSpeechFrames = continuousSpeechFrames;
+            this.silenceFrames = silenceFrames;
+        }
+
+        public boolean[] getVadResults() {
+            return vadResults;
+        }
+
+        public int getContinuousSpeechFrames() {
+            return continuousSpeechFrames;
+        }
+
+        public int getSilenceFrames() {
+            return silenceFrames;
+        }
+    }
+}
