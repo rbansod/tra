@@ -1,0 +1,18 @@
+ asyncStub.modelInfer(request, new StreamObserver<ModelInferResponse>() {
+                @Override
+                public void onNext(ModelInferResponse response) {
+                    System.out.println("Received response: " + response); // update with creation of transcription object
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    System.err.println("Error: " + t.getMessage()); // replace with logger
+                    latch.countDown();
+                }
+
+                @Override
+                public void onCompleted() {
+                    
+                }
+            });
+        }
