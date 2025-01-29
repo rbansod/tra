@@ -1,0 +1,6 @@
+// Convert to ZonedDateTime in UTC
+ZonedDateTime dateTime = Instant.ofEpochMilli(milliseconds).atZone(ZoneId.of("UTC"));
+
+// Format output
+DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
+String formattedDate = dateTime.format(formatter);
