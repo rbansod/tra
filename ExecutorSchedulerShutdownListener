@@ -1,0 +1,61 @@
+import org.springframework.boot.context.event.ApplicationStoppingEvent;
+import org.springframework.context.ApplicationListener;
+import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+
+@Component
+public class ExecutorSchedulerShutdownListener implements ApplicationListener<ApplicationStoppingEvent> {
+
+    private final ThreadPoolTaskExecutor taskExecutor;
+    private final ThreadPoolTaskExecutor backgroundExecutor;
+    private final ThreadPoolTaskScheduler mainScheduler;
+    private final ThreadPoolTaskScheduler secondaryScheduler;
+
+    public ExecutorSchedulerShutdownListener(
+            @Qualifier("taskExecutor") ThreadPoolTaskExecutor taskExecutor,
+            @Qualifier("backgroundExecutor") ThreadPoolTaskExecutor backgroundExecutor,
+            @Qualifier("mainScheduler") ThreadPoolTaskScheduler mainScheduler,
+            @Qualifier("secondaryScheduler") ThreadPoolTaskScheduler secondaryScheduler) {
+        this.taskExecutor = taskExecutor;
+        this.backgroundExecutor = backgroundExecutor;
+        this.mainScheduler = mainScheduler;
+        this.secondaryScheduler = secondaryScheduler;
+    }
+
+    @Override
+    public void onApplicationEvent(ApplicationStoppingEvent event) {
+        System.out.println("🚀 Application is stopping. Shutting down named executors and schedulers...");
+
+        // Shutdown named schedulers
+        shutdownScheduler(mainScheduler, "Main Scheduler");
+        shutdownScheduler(secondaryScheduler, "Secondary Scheduler");
+
+        // Shutdown named executors
+        shutdownExecutor(taskExecutor, "Task Executor");
+        shutdownExecutor(backgroundExecutor, "Background Executor");
+
+        System.out.println("✅ All named executors and schedulers have been shut down successfully.");
+    }
+
+    private void shutdownScheduler(ThreadPoolTaskScheduler scheduler, String name) {
+        System.out.println("🛑 Shutting down scheduler: " + name);
+        scheduler.shutdown();
+    }
+
+    private void shutdownExecutor(ThreadPoolTaskExecutor executor, String name) {
+        System.out.println("🛑 Shutting down executor: " + name);
+        executor.shutdown(); // Stops accepting new tasks
+        executor.getThreadPoolExecutor().shutdown(); // Graceful shutdown for existing tasks
+        try {
+            if (!executor.getThreadPoolExecutor().awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                System.out.println("⏳ Forcing shutdown of " + name + "...");
+                executor.getThreadPoolExecutor().shutdownNow(); // Force shutdown if tasks are still running
+            }
+        } catch (InterruptedException e) {
+            executor.getThreadPoolExecutor().shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+}
