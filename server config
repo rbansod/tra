@@ -1,0 +1,11 @@
+-server
+-Xms4G
+-Xmx4G
+-XX:+UseG1GC
+-XX:MaxGCPauseMillis=50
+-XX:ParallelGCThreads=8
+-XX:ConcGCThreads=4
+-XX:InitiatingHeapOccupancyPercent=30
+-XX:+DisableExplicitGC
+-XX:+AlwaysPreTouch
+-XX:+UseStringDeduplication
