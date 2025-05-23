@@ -1,0 +1,64 @@
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.ApplicationContext;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.stereotype.Component;
+
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+
+@Component
+public class JBossExecutorScanner implements ApplicationRunner {
+
+    private static final Logger logger = LoggerFactory.getLogger(JBossExecutorScanner.class);
+    private final ApplicationContext context;
+
+    public JBossExecutorScanner(ApplicationContext context) {
+        this.context = context;
+    }
+
+    @Override
+    public void run(ApplicationArguments args) {
+
+        logger.info("=== Running JBossExecutorScanner at startup ===");
+        logger.info("=== ApplicationContext loaded with {} beans ===", context.getBeanDefinitionCount());
+    
+        logger.info("=== Checking ExecutorService beans ===");
+
+        Map<String, ExecutorService> executors = context.getBeansOfType(ExecutorService.class);
+        for (Map.Entry<String, ExecutorService> entry : executors.entrySet()) {
+            String name = entry.getKey();
+            ExecutorService service = entry.getValue();
+            String className = service.getClass().getName();
+
+            logger.info("ExecutorService [{}] -> {}", name, className);
+
+            if (className.contains("jboss") || className.contains("ManagedExecutorService")) {
+                logger.warn("WARNING: [{}] is a JBoss-managed executor ({})", name, className);
+            } else {
+                logger.info("[{}] is a native or Spring-managed executor.", name);
+            }
+        }
+
+        logger.info("=== Checking TaskExecutor beans ===");
+
+        Map<String, TaskExecutor> taskExecutors = context.getBeansOfType(TaskExecutor.class);
+        for (Map.Entry<String, TaskExecutor> entry : taskExecutors.entrySet()) {
+            String name = entry.getKey();
+            TaskExecutor executor = entry.getValue();
+            String className = executor.getClass().getName();
+
+            logger.info("TaskExecutor [{}] -> {}", name, className);
+
+            if (className.contains("jboss") || className.contains("ManagedExecutorService")) {
+                logger.warn("WARNING: TaskExecutor [{}] appears to be container-managed ({})", name, className);
+            } else {
+                logger.info("TaskExecutor [{}] is Spring-managed.", name);
+            }
+        }
+
+        logger.info("=== Executor inspection complete ===");
+    }
+}
