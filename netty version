@@ -1,0 +1,7 @@
+logger.info("Netty Version: {}", io.netty.util.Version.identify().entrySet());
+logger.info("Netty Channel Class Source: {}" , io.netty.channel.Channel.class.getProtectionDomain().getCodeSource().getLocation());
+logger.info("Bootstrap class source: {}", io.netty.bootstrap.Bootstrap.class.getProtectionDomain().getCodeSource().getLocation());
+io.netty.util.Version.identify().forEach((k, v) -> {
+    logger.info("Netty Source: {} -> Netty Version Info: {}", k, v);
+});
+
