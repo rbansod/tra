@@ -1,0 +1,52 @@
+import org.springframework.scheduling.TaskScheduler;
+import java.util.Date;
+import java.util.concurrent.*;
+import io.netty.channel.EventLoop;
+
+public class NettyTaskScheduler implements TaskScheduler {
+
+    private final EventLoop eventLoop;
+
+    public NettyTaskScheduler(EventLoop eventLoop) {
+        this.eventLoop = eventLoop;
+    }
+
+    @Override
+    public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) {
+        throw new UnsupportedOperationException("Trigger not supported.");
+    }
+
+    @Override
+    public ScheduledFuture<?> schedule(Runnable task, Date startTime) {
+        long delay = startTime.getTime() - System.currentTimeMillis();
+        return eventLoop.schedule(task, Math.max(delay, 0), TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public ScheduledFuture<?> scheduleAtFixedRate(Runnable task, Date startTime, long period) {
+        long initialDelay = startTime.getTime() - System.currentTimeMillis();
+        return eventLoop.scheduleAtFixedRate(task, Math.max(initialDelay, 0), period, TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public ScheduledFuture<?> scheduleAtFixedRate(Runnable task, long period) {
+        return eventLoop.scheduleAtFixedRate(task, 0, period, TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, Date startTime, long delay) {
+        long initialDelay = startTime.getTime() - System.currentTimeMillis();
+        return eventLoop.scheduleWithFixedDelay(task, Math.max(initialDelay, 0), delay, TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, long delay) {
+        return eventLoop.scheduleWithFixedDelay(task, delay, delay, TimeUnit.MILLISECONDS);
+    }
+}
+
+@Bean
+public TaskScheduler nettyTaskScheduler(@Qualifier("nettyBossGroup") EventLoopGroup eventLoopGroup) {
+    // You may use eventLoopGroup.next() to assign one EventLoop
+    return new NettyTaskScheduler(eventLoopGroup.next());
+}
