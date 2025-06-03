@@ -1,0 +1,190 @@
+// Java 8-compatible Netty + Spring Integration configuration
+
+@Configuration
+@EnableIntegration
+public class RtpAggregatorResequencerConfig {
+
+    @Bean
+    public EventLoopGroup nettyEventLoopGroup() {
+        return new NioEventLoopGroup(Runtime.getRuntime().availableProcessors());
+    }
+
+    @Bean
+    public Bootstrap datagramBootstrap(EventLoopGroup group, ChannelInboundHandlerAdapter udpHandler) {
+        Bootstrap bootstrap = new Bootstrap();
+        bootstrap.group(group)
+                 .channel(NioDatagramChannel.class)
+                 .handler(udpHandler);
+        return bootstrap;
+    }
+
+    @Bean
+    public ChannelInboundHandlerAdapter udpHandler(MessageChannel inputChannel) {
+        return new SimpleChannelInboundHandler<DatagramPacket>() {
+            @Override
+            protected void channelRead0(ChannelHandlerContext ctx, DatagramPacket packet) {
+                byte[] data = new byte[packet.content().readableBytes()];
+                packet.content().readBytes(data);
+                String callId = extractCallId(data);
+                String correlationId = extractCorrelationId(data);
+
+                Message<byte[]> message = MessageBuilder.withPayload(data)
+                        .setHeader("callId", callId)
+                        .setHeader("correlationId", correlationId)
+                        .setHeader(IntegrationMessageHeaderAccessor.CORRELATION_ID, correlationId)
+                        .setHeader(IntegrationMessageHeaderAccessor.SEQUENCE_NUMBER, extractSequenceNumber(data))
+                        .build();
+                inputChannel.send(message);
+            }
+
+            private String extractCallId(byte[] data) {
+                return "call-" + data[0];
+            }
+
+            private String extractCorrelationId(byte[] data) {
+                return UUID.nameUUIDFromBytes(Arrays.copyOfRange(data, 2, 10)).toString();
+            }
+
+            private int extractSequenceNumber(byte[] data) {
+                return data[1] & 0xFF;
+            }
+        };
+    }
+
+    @Bean
+    public MessageChannel udpInputChannel() {
+        return new DirectChannel();
+    }
+
+    @Bean
+    public ApplicationRunner datagramReceiver(Bootstrap bootstrap) {
+        return args -> {
+            bootstrap.bind(5000).sync();
+        };
+    }
+
+    @Bean
+    public TaskScheduler nettyTaskScheduler(EventLoopGroup eventLoopGroup) {
+        EventLoop loop = eventLoopGroup.next();
+        return new TaskScheduler() {
+            public ScheduledFuture<?> schedule(Runnable task, Date startTime) {
+                long delay = Math.max(0, startTime.getTime() - System.currentTimeMillis());
+                return loop.schedule(wrap(task), delay, TimeUnit.MILLISECONDS);
+            }
+
+            public ScheduledFuture<?> schedule(Runnable task, Trigger trigger) {
+                throw new UnsupportedOperationException("Trigger-based scheduling not supported");
+            }
+
+            public ScheduledFuture<?> scheduleAtFixedRate(Runnable task, long period) {
+                return loop.scheduleAtFixedRate(wrap(task), 0, period, TimeUnit.MILLISECONDS);
+            }
+
+            public ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, long delay) {
+                return loop.scheduleWithFixedDelay(wrap(task), 0, delay, TimeUnit.MILLISECONDS);
+            }
+
+            private Runnable wrap(Runnable task) {
+                return new Runnable() {
+                    public void run() {
+                        try {
+                            task.run();
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                        }
+                    }
+                };
+            }
+        };
+    }
+
+    @Bean
+    public LockRegistry eventLoopAwareLockRegistry(EventLoopGroup eventLoopGroup) {
+        return new LockRegistry() {
+            private final ConcurrentMap<Object, Lock> locks = new ConcurrentHashMap<>();
+
+            public Lock obtain(Object key) {
+                return locks.computeIfAbsent(key, new Function<Object, Lock>() {
+                    public Lock apply(Object k) {
+                        return new EventLoopFriendlyLock();
+                    }
+                });
+            }
+
+            class EventLoopFriendlyLock implements Lock {
+                private final AtomicBoolean locked = new AtomicBoolean(false);
+
+                public boolean tryLock() {
+                    return locked.compareAndSet(false, true);
+                }
+
+                public void unlock() {
+                    locked.set(false);
+                }
+
+                public void lock() {
+                    throw new UnsupportedOperationException();
+                }
+
+                public void lockInterruptibly() throws InterruptedException {
+                    throw new UnsupportedOperationException();
+                }
+
+                public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
+                    return tryLock();
+                }
+
+                public Condition newCondition() {
+                    throw new UnsupportedOperationException();
+                }
+            }
+        };
+    }
+
+    @Bean
+    public MessageGroupStore messageStore() {
+        return new SimpleMessageStore(2000);
+    }
+
+    @Bean
+    public IntegrationFlow resequencerFlow(TaskScheduler nettyTaskScheduler, LockRegistry eventLoopAwareLockRegistry) {
+        return IntegrationFlows.from("resequencerInputChannel")
+            .resequence(r -> r
+                .correlationExpression("headers['correlationId']")
+                .releaseStrategy(new ReleaseStrategy() {
+                    public boolean canRelease(MessageGroup group) {
+                        return group.size() >= 10;
+                    }
+                })
+                .messageStore(messageStore())
+                .expireGroupsUponTimeout(true)
+                .sendPartialResultOnExpiry(true)
+                .expireTimeout(5000)
+                .taskScheduler(nettyTaskScheduler)
+                .lockRegistry(eventLoopAwareLockRegistry)
+            )
+            .channel("resequencedOutputChannel")
+            .get();
+    }
+
+    @Bean
+    public IntegrationFlow aggregatorFlow(TaskScheduler nettyTaskScheduler, LockRegistry eventLoopAwareLockRegistry) {
+        return IntegrationFlows.from("aggregatorInputChannel")
+            .aggregate(a -> a
+                .correlationExpression("headers['correlationId']")
+                .releaseStrategy(new ReleaseStrategy() {
+                    public boolean canRelease(MessageGroup group) {
+                        return group.size() >= 50;
+                    }
+                })
+                .messageStore(messageStore())
+                .expireGroupsUponTimeout(true)
+                .sendPartialResultOnExpiry(true)
+                .expireTimeout(5000)
+                .taskScheduler(nettyTaskScheduler)
+                .lockRegistry(eventLoopAwareLockRegistry)
+            )
+            .channel("aggregatedOutputChannel")
+            .get();
+    }
+}
