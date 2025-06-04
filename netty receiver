@@ -1,0 +1,101 @@
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.socket.DatagramPacket;
+import reactor.netty.udp.UdpServer;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.integration.channel.DirectChannel;
+
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.concurrent.*;
+
+public class UdpAggregatorServer {
+
+    // Configurable thresholds
+    private static final int MAX_BYTES = 2048;
+    private static final int MAX_MILLIS = 3000;
+
+    // Buffers per call ID
+    private final Map<String, CompositeByteBuf> callBuffers = new ConcurrentHashMap<>();
+    private final Map<String, Long> lastSeen = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
+    // Output to Spring Integration
+    private final DirectChannel springChannel;
+
+    public UdpAggregatorServer(DirectChannel springChannel) {
+        this.springChannel = springChannel;
+        scheduleFlushLoop();
+    }
+
+    public void start() {
+        UdpServer.create()
+                .host("0.0.0.0")
+                .port(9999)
+                .option(ChannelOption.SO_RCVBUF, 65536)
+                .option(ChannelOption.ALLOCATOR, io.netty.buffer.PooledByteBufAllocator.DEFAULT)
+                .handle((in, out) ->
+                        in.receiveObject()
+                          .cast(DatagramPacket.class)
+                          .flatMap(this::handlePacket)
+                          .then()
+                )
+                .bindNow()
+                .onDispose()
+                .block();
+    }
+
+    private Mono<Void> handlePacket(DatagramPacket pkt) {
+        String callId = extractCallId(pkt);
+        CompositeByteBuf buffer = callBuffers.computeIfAbsent(callId,
+            id -> pkt.content().alloc().compositeBuffer());
+        buffer.addComponent(true, pkt.content().retain());
+        lastSeen.put(callId, System.currentTimeMillis());
+        return Mono.empty();
+    }
+
+    private void scheduleFlushLoop() {
+        scheduler.scheduleAtFixedRate(() -> {
+            long now = System.currentTimeMillis();
+            for (String callId : callBuffers.keySet()) {
+                CompositeByteBuf buf = callBuffers.get(callId);
+                Long lastTime = lastSeen.getOrDefault(callId, now);
+                if (buf.readableBytes() >= MAX_BYTES || (now - lastTime) >= MAX_MILLIS) {
+                    callBuffers.remove(callId);
+                    lastSeen.remove(callId);
+                    dispatchToSpring(callId, buf);
+                    buf.release();  // Avoid memory leak
+                }
+            }
+        }, 0, 10, TimeUnit.MILLISECONDS);
+    }
+
+    private void dispatchToSpring(String callId, ByteBuf data) {
+        String payload = data.toString(StandardCharsets.UTF_8);
+        Message<String> message = MessageBuilder.withPayload(payload)
+                .setHeader("callId", callId)
+                .build();
+        springChannel.send(message);
+    }
+
+    private String extractCallId(DatagramPacket pkt) {
+        // Placeholder logic – replace with real RTP call ID extraction logic
+        return pkt.sender().toString(); // or decode from payload
+    }
+
+    // Entry point if running standalone
+    public static void main(String[] args) {
+        DirectChannel outputChannel = new DirectChannel();
+        outputChannel.subscribe(message -> {
+            System.out.println("Spring received aggregated message: " + message);
+        });
+
+        UdpAggregatorServer server = new UdpAggregatorServer(outputChannel);
+        server.start();
+    }
+}
