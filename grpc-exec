@@ -1,0 +1,19 @@
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+@Bean(name = "grpcTaskExecutor")
+public ThreadPoolTaskExecutor grpcTaskExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    
+    executor.setCorePoolSize(64);           // Steady-state thread count
+    executor.setMaxPoolSize(128);           // Handle spikes in traffic
+    executor.setQueueCapacity(2000);        // Buffer tasks when all threads are busy
+    executor.setKeepAliveSeconds(60);       // Time to keep extra threads alive
+    executor.setThreadNamePrefix("grpc-async-");
+    executor.setAllowCoreThreadTimeOut(false); // Optional: keep core threads alive
+    executor.setWaitForTasksToCompleteOnShutdown(true);
+    executor.setAwaitTerminationSeconds(30);
+    executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy()); // Backpressure
+
+    executor.initialize();
+    return executor;
+}
