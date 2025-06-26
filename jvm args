@@ -1,0 +1,9 @@
+-XX:+UseG1GC \
+-XX:MaxGCPauseMillis=100 \
+-XX:+ParallelRefProcEnabled \
+-XX:+AlwaysPreTouch \
+-XX:MaxDirectMemorySize=1G \
+-XX:+UseLargePages \
+-XX:LargePageSizeInBytes=2m \
+-Dio.netty.allocator.type=pooled \
+-Dreactor.schedulers.defaultBoundedElasticSize=64
