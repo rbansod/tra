@@ -1,0 +1,3 @@
+session_context = ssl.create_default_context()
+session_context.check_hostname = False
+session_context.verify_mode = ssl.CERT_NONE
