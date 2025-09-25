@@ -1,0 +1,99 @@
+import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.search.*;
+import redis.clients.jedis.search.Document;
+import org.apache.commons.text.similarity.JaroWinklerSimilarity;
+
+import java.util.*;
+
+public class UtteranceSearcher {
+
+    private final JedisPooled jedis;
+    private final JaroWinklerSimilarity jw = new JaroWinklerSimilarity();
+
+    public UtteranceSearcher(JedisPooled jedis) { this.jedis = jedis; }
+
+    /** Search with: exact utterance OR exact normalized; then apply JW>=0.95 on normalized branch.
+     *  Returns BM25 + both normalizations: softmaxProb (sum=1 across set) and minMax01 (0..1).
+     */
+    public List<Result> search(String utterance, String normalized) {
+        String qstr = "(@utterance_tag:{" + escapeTag(utterance) + "}) | " +
+                      "(@normalized_tag:{" + escapeTag(normalized) + "})";
+
+        Query q = new Query(qstr)
+                .scorer("BM25")
+                .withScores()
+                .returnFields("utterance", "utterance_tag", "normalized_tag")
+                .limit(0, 100);
+
+        SearchResult sr = jedis.ftSearch("idx:utterances", q);
+
+        // Collect candidates (exact utterance OR normalized + JW>=0.95)
+        List<Result> results = new ArrayList<>();
+        for (Document d : sr.getDocuments()) {
+            String uTag = d.getString("utterance_tag");
+            String nTag = d.getString("normalized_tag");
+            String cand = d.getString("utterance");
+            double bm25 = d.getScore();
+
+            if (utterance.equals(uTag)) {
+                results.add(new Result(d.getId(), cand, bm25, 1.0, 0.0, 0.0));
+            } else if (normalized.equals(nTag)) {
+                double sim = jw.apply(utterance, cand);
+                if (sim >= 0.95) {
+                    results.add(new Result(d.getId(), cand, bm25, sim, 0.0, 0.0));
+                }
+            }
+        }
+
+        // Compute BOTH normalizations over the kept results
+        applyBothNormalizations(results);
+
+        // Optional: sort by softmaxProb desc (or bm25)
+        results.sort(Comparator.comparingDouble(Result::softmaxProb).reversed());
+        return results;
+    }
+
+    private void applyBothNormalizations(List<Result> list) {
+        if (list.isEmpty()) return;
+
+        // --- Min–max over BM25
+        double min = list.stream().mapToDouble(Result::bm25Score).min().orElse(0);
+        double max = list.stream().mapToDouble(Result::bm25Score).max().orElse(1);
+        double range = (max - min == 0) ? 1 : (max - min);
+
+        // --- Softmax over BM25 (stabilized)
+        double maxScore = list.stream().mapToDouble(Result::bm25Score).max().orElse(0);
+        double sumExp = list.stream().mapToDouble(r -> Math.exp(r.bm25Score - maxScore)).sum();
+
+        for (int i = 0; i < list.size(); i++) {
+            Result r = list.get(i);
+            double minMax01 = (r.bm25Score - min) / range;                        // 0..1
+            double softmax = Math.exp(r.bm25Score - maxScore) / sumExp;           // (0,1), sums to 1
+            list.set(i, new Result(r.id, r.utterance, r.bm25Score, r.sim, softmax, minMax01));
+        }
+    }
+
+    // Escape for TAG values (spaces and special chars)
+    private static String escapeTag(String s) {
+        return s.replaceAll("([,{}\\[\\]\\\"'\\\\])", "\\\\$1").replace(" ", "\\ ");
+    }
+
+    /** bm25Score = raw RediSearch score; sim = Jaro–Winkler [0..1];
+     *  softmaxProb = probability across results (sum=1); minMax01 = linear scale [0..1].
+     */
+    public static record Result(String id,
+                                String utterance,
+                                double bm25Score,
+                                double sim,
+                                double softmaxProb,
+                                double minMax01) {}
+}
+
+-------------------------------------------------------------------------
+
+UtteranceSearcher s = new UtteranceSearcher(jedis);
+var results = s.search("how are you", "how_are_you");
+for (var r : results) {
+    System.out.printf("id=%s | bm25=%.3f | sim=%.3f | softmax=%.4f | minmax=%.3f | %s%n",
+        r.id(), r.bm25Score(), r.sim(), r.softmaxProb(), r.minMax01(), r.utterance());
+}
